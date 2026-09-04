@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # RAG Pipeline Backend
+  rag-api:
+    build: .
+    container_name: rag-pipeline-api
+    ports:
+      - "8000:8000"
+    environment:
+      - VECTOR_STORE_TYPE=chromadb
+      - EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+      - EMBEDDING_DEVICE=cpu
+      - CHUNK_SIZE=512
+      - CHUNK_OVERLAP=50
+      - USE_PARENT_CHILD_CHUNKING=true
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=false
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./eval/documents.json:/app/sample_data/documents.json:ro
+      - ./demo_init.py:/app/demo_init.py:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    command: sh -c "python /app/demo_init.py && python -m uvicorn rag_pipeline.api:app --host 0.0.0.0 --port 8000"
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+  # Frontend
+  frontend:
+    image: nginx:alpine
+    container_name: rag-pipeline-frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - rag-api
+    networks:
+      - rag-network
+    restart: unless-stopped
+
+networks:
+  rag-network:
+    driver: bridge
+
+volumes:
+  data:
+  models:
+

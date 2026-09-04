@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Pipeline - Document Intelligence Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .logo svg {
+            width: 40px;
+            height: 40px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #f0fdf4;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #22c55e;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon {
+            width: 24px;
+            height: 24px;
+            color: #667eea;
+        }
+
+        .upload-zone {
+            border: 2px dashed #e5e7eb;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f9fafb;
+        }
+
+        .upload-zone:hover {
+            border-color: #667eea;
+            background: #f3f4f6;
+        }
+
+        .upload-zone.dragging {
+            border-color: #667eea;
+            background: #ede9fe;
+        }
+
+        .upload-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .upload-text {
+            font-size: 16px;
+            font-weight: 500;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+
+        .upload-hint {
+            font-size: 13px;
+            color: #9ca3af;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e7eb;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-box {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            font-weight: 500;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .results-container {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .result-item {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .result-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: #d1d5db;
+        }
+
+        .result-score {
+            display: inline-block;
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .result-source {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 8px;
+        }
+
+        .result-content {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+
+        .metadata {
+            font-size: 11px;
+            color: #9ca3af;
+            background: #ffffff;
+            padding: 8px;
+            border-radius: 4px;
+            border-left: 2px solid #667eea;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert-success {
+            background: #f0fdf4;
+            border-left: 4px solid #22c55e;
+            color: #166534;
+        }
+
+        .alert-error {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+        }
+
+        .alert-info {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            color: #1e40af;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #9ca3af;
+        }
+
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 15px;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            padding: 10px 0;
+            border: none;
+            background: none;
+            font-size: 14px;
+            font-weight: 600;
+            color: #6b7280;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .setting-item {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+        }
+
+        .setting-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+
+        .setting-value {
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .footer {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .document-badge {
+            display: inline-block;
+            background: #ede9fe;
+            color: #6d28d9;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 5px;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-item {
+            animation: slideIn 0.3s ease;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e5e7eb;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            animation: progress 2s ease-in-out;
+        }
+
+        @keyframes progress {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                </svg>
+                RAG Pipeline
+            </div>
+            <div class="status-badge">
+                <div class="status-indicator"></div>
+                System Online
+            </div>
+        </header>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Upload Card -->
+            <div class="card">
+                <div class="card-title">
+                    <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    Upload Documents
+                </div>
+
+                <div id="uploadZone" class="upload-zone">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text">Drop documents here or click to browse</div>
+                    <div class="upload-hint">Supported: PDF, TXT, MD, DOCX, HTML, JSON, Code files (Max 100MB)</div>
+                </div>
+                <input type="file" id="fileInput" multiple accept=".pdf,.txt,.md,.markdown,.docx,.html,.json,.py,.js,.ts,.java,.cpp,.go,.rs">
+
+                <div class="button-group">
+                    <button class="btn-primary" onclick="selectFiles()">
+                        <span>📁</span> Select Files
+                    </button>
+                    <button class="btn-secondary" onclick="clearUpload()">Clear</button>
+                </div>
+
+                <div id="uploadStatus" style="margin-top: 20px;"></div>
+            </div>
+
+            <!-- Query Card -->
+            <div class="card">
+                <div class="card-title">
+                    <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    Search Documents
+                </div>
+
+                <div class="search-container">
+                    <input
+                        type="text"
+                        id="queryInput"
+                        class="search-input"
+                        placeholder="Enter your search query..."
+                        onkeypress="if(event.key==='Enter') performQuery()"
+                    >
+                    <button class="btn-primary" onclick="performQuery()">
+                        <span>🔍</span> Search
+                    </button>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-label">Total Documents</div>
+                        <div class="stat-value" id="totalDocs">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Total Chunks</div>
+                        <div class="stat-value" id="totalChunks">0</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Model</div>
+                        <div style="font-size: 12px; color: #667eea; font-weight: 600;">MiniLM</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Store</div>
+                        <div style="font-size: 12px; color: #667eea; font-weight: 600;">ChromaDB</div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-secondary" onclick="refreshStats()" style="flex: 1;">
+                        <span>🔄</span> Refresh Stats
+                    </button>
+                    <button class="btn-secondary" onclick="clearAllChunks()" style="flex: 1; background: #fee2e2; color: #991b1b;">
+                        <span>🗑️</span> Clear All
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Card -->
+        <div class="card">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('results')">Search Results</button>
+                <button class="tab" onclick="switchTab('advanced')">Advanced Settings</button>
+                <button class="tab" onclick="switchTab('about')">About</button>
+            </div>
+
+            <!-- Results Tab -->
+            <div id="results" class="tab-content active">
+                <div id="resultsContent">
+                    <div class="empty-state">
+                        <div class="empty-icon">🔎</div>
+                        <div>No search results yet. Upload documents and perform a search.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Advanced Settings Tab -->
+            <div id="advanced" class="tab-content">
+                <div class="settings-grid">
+                    <div class="setting-item">
+                        <div class="setting-label">Top K Results</div>
+                        <input type="range" id="topK" min="1" max="10" value="5" style="width: 100%;">
+                        <span id="topKValue" style="color: #667eea; font-weight: 600;">5</span>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-label">Chunk Size</div>
+                        <div class="setting-value">512 tokens</div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-label">Overlap</div>
+                        <div class="setting-value">50 tokens</div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-label">Embedding Dimension</div>
+                        <div class="setting-value">384-dim</div>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 30px; margin-bottom: 15px; color: #1f2937;">Performance</h3>
+                <div class="stat-box">
+                    <div class="stat-label">API Status</div>
+                    <div id="apiStatus" style="color: #22c55e; font-weight: 600;">Connected</div>
+                </div>
+            </div>
+
+            <!-- About Tab -->
+            <div id="about" class="tab-content">
+                <div style="line-height: 1.8; color: #4b5563;">
+                    <h3 style="margin-bottom: 15px; color: #1f2937;">RAG Pipeline v0.1.0</h3>
+                    <p style="margin-bottom: 15px;">
+                        Production-grade Retrieval-Augmented Generation system with intelligent document ingestion and semantic search.
+                    </p>
+                    <h4 style="margin-top: 20px; margin-bottom: 10px; color: #1f2937;">Features</h4>
+                    <ul style="margin-left: 20px; margin-bottom: 15px;">
+                        <li>Multi-format document support (PDF, TXT, MD, DOCX, HTML, JSON, Code)</li>
+                        <li>Intelligent semantic chunking with context preservation</li>
+                        <li>High-quality embeddings using sentence-transformers</li>
+                        <li>Fast semantic search with ChromaDB</li>
+                        <li>Parent-child hierarchical chunking</li>
+                        <li>Content deduplication</li>
+                    </ul>
+                    <h4 style="margin-top: 20px; margin-bottom: 10px; color: #1f2937;">Supported Formats</h4>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        <span class="document-badge">PDF</span>
+                        <span class="document-badge">TXT</span>
+                        <span class="document-badge">Markdown</span>
+                        <span class="document-badge">DOCX</span>
+                        <span class="document-badge">HTML</span>
+                        <span class="document-badge">JSON</span>
+                        <span class="document-badge">Python</span>
+                        <span class="document-badge">JavaScript</span>
+                        <span class="document-badge">TypeScript</span>
+                        <span class="document-badge">Java</span>
+                        <span class="document-badge">C++</span>
+                        <span class="document-badge">Go</span>
+                        <span class="document-badge">Rust</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>RAG Pipeline &copy; 2026 | Production-Ready Document Intelligence Platform</p>
+            <p style="margin-top: 8px;">API: http://localhost:8000 | Docs: http://localhost:8000/docs</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const topKSlider = document.getElementById('topK');
+        const topKValue = document.getElementById('topKValue');
+
+        topKSlider.addEventListener('input', (e) => {
+            topKValue.textContent = e.target.value;
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupUploadZone();
+            refreshStats();
+            checkAPIStatus();
+            setInterval(checkAPIStatus, 30000);
+        });
+
+        function setupUploadZone() {
+            const uploadZone = document.getElementById('uploadZone');
+            const fileInput = document.getElementById('fileInput');
+
+            uploadZone.addEventListener('click', () => fileInput.click());
+
+            uploadZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadZone.classList.add('dragging');
+            });
+
+            uploadZone.addEventListener('dragleave', () => {
+                uploadZone.classList.remove('dragging');
+            });
+
+            uploadZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadZone.classList.remove('dragging');
+                handleFiles(e.dataTransfer.files);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+            });
+        }
+
+        function selectFiles() {
+            document.getElementById('fileInput').click();
+        }
+
+        function clearUpload() {
+            document.getElementById('fileInput').value = '';
+            document.getElementById('uploadStatus').innerHTML = '';
+        }
+
+        async function handleFiles(files) {
+            const uploadStatus = document.getElementById('uploadStatus');
+            uploadStatus.innerHTML = '';
+
+            if (files.length === 0) return;
+
+            for (let file of files) {
+                await uploadFile(file);
+            }
+        }
+
+        async function uploadFile(file) {
+            const uploadStatus = document.getElementById('uploadStatus');
+            const fileId = 'upload-' + Date.now();
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const statusDiv = document.createElement('div');
+            statusDiv.id = fileId;
+            uploadStatus.appendChild(statusDiv);
+
+            statusDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <span>📤</span> Uploading ${file.name}...
+                    <div class="loading"></div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    statusDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <span>✓</span> Successfully uploaded ${file.name}
+                        </div>
+                        <div class="metadata">
+                            Document ID: ${data.document_id}<br>
+                            Chunks created: ${data.chunk_count}
+                        </div>
+                    `;
+                    refreshStats();
+                } else {
+                    throw new Error(data.detail || 'Upload failed');
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="alert alert-error">
+                        <span>✗</span> Error uploading ${file.name}: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function performQuery() {
+            const queryInput = document.getElementById('queryInput');
+            const query = queryInput.value.trim();
+            const topK = parseInt(document.getElementById('topK').value);
+            const resultsContent = document.getElementById('resultsContent');
+
+            if (!query) {
+                alert('Please enter a search query');
+                return;
+            }
+
+            resultsContent.innerHTML = `
+                <div style="text-align: center; padding: 40px;">
+                    <div class="loading" style="margin: 0 auto; margin-bottom: 15px;"></div>
+                    <div>Searching documents...</div>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${API_BASE}/query`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        top_k: topK
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.results && data.results.length > 0) {
+                    let html = `<div style="margin-bottom: 15px; color: #6b7280;">Found ${data.result_count} relevant results</div>`;
+
+                    data.results.forEach((result, index) => {
+                        const score = (result.similarity_score * 100).toFixed(1);
+                        const source = result.metadata?.source_file || 'Unknown';
+                        const pageNum = result.metadata?.page_number ? ` (Page ${result.metadata.page_number})` : '';
+                        const content = result.content?.substring(0, 300) || '';
+
+                        html += `
+                            <div class="result-item">
+                                <div style="margin-bottom: 10px;">
+                                    <span class="result-score">Relevance: ${score}%</span>
+                                </div>
+                                <div class="result-source">
+                                    <strong>Source:</strong> ${source}${pageNum}
+                                </div>
+                                <div class="result-content">
+                                    ${escapeHtml(content)}...
+                                </div>
+                                <div class="metadata">
+                                    <strong>Metadata:</strong><br>
+                                    Type: ${result.metadata?.doc_type || 'N/A'}<br>
+                                    Chunk Index: ${result.metadata?.chunk_index || 'N/A'}
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    resultsContent.innerHTML = html;
+                } else {
+                    resultsContent.innerHTML = `
+                        <div class="alert alert-info">
+                            <span>ℹ</span> No results found for your query. Try different keywords.
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultsContent.innerHTML = `
+                    <div class="alert alert-error">
+                        <span>✗</span> Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function refreshStats() {
+            try {
+                const response = await fetch(`${API_BASE}/stats`);
+                const data = await response.json();
+
+                document.getElementById('totalDocs').textContent = data.document_count || 0;
+                document.getElementById('totalChunks').textContent = data.document_count || 0;
+                console.log('Stats updated:', data);
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+            }
+        }
+
+        async function clearAllChunks() {
+            if (!confirm('⚠️ This will delete ALL chunks from the system. This action cannot be undone. Are you sure?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/clear-all`, {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    alert('✓ All chunks cleared successfully!');
+                    refreshStats();
+                } else {
+                    throw new Error(data.detail || 'Failed to clear chunks');
+                }
+            } catch (error) {
+                alert(`✗ Error: ${error.message}`);
+                console.error('Error clearing chunks:', error);
+            }
+        }
+
+        async function checkAPIStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                if (response.ok) {
+                    document.getElementById('apiStatus').textContent = 'Connected';
+                    document.getElementById('apiStatus').style.color = '#22c55e';
+                } else {
+                    throw new Error('API returned error');
+                }
+            } catch (error) {
+                document.getElementById('apiStatus').textContent = 'Disconnected';
+                document.getElementById('apiStatus').style.color = '#ef4444';
+            }
+        }
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+[
+  {
+    "query": "machine learning algorithms and supervised learning",
+    "relevant_docs": [
+      "doc1",
+      "doc6"
+    ],
+    "irrelevant_docs": [
+      "doc3",
+      "doc4"
+    ]
+  },
+  {
+    "query": "neural networks and deep learning training",
+    "relevant_docs": [
+      "doc2",
+      "doc1"
+    ],
+    "irrelevant_docs": [
+      "doc3",
+      "doc5"
+    ]
+  },
+  {
+    "query": "natural language processing and text understanding",
+    "relevant_docs": [
+      "doc3",
+      "doc2"
+    ],
+    "irrelevant_docs": [
+      "doc4",
+      "doc5"
+    ]
+  },
+  {
+    "query": "computer vision image recognition and object detection",
+    "relevant_docs": [
+      "doc4",
+      "doc2"
+    ],
+    "irrelevant_docs": [
+      "doc3",
+      "doc5"
+    ]
+  },
+  {
+    "query": "recommendation systems and collaborative filtering",
+    "relevant_docs": [
+      "doc5"
+    ],
+    "irrelevant_docs": [
+      "doc1",
+      "doc2"
+    ]
+  },
+  {
+    "query": "data preparation and feature engineering",
+    "relevant_docs": [
+      "doc6",
+      "doc7"
+    ],
+    "irrelevant_docs": [
+      "doc2",
+      "doc4"
+    ]
+  },
+  {
+    "query": "model evaluation metrics and validation",
+    "relevant_docs": [
+      "doc6",
+      "doc1"
+    ],
+    "irrelevant_docs": [
+      "doc5",
+      "doc10"
+    ]
+  },
+  {
+    "query": "production deployment and model serving",
+    "relevant_docs": [
+      "doc8"
+    ],
+    "irrelevant_docs": [
+      "doc1",
+      "doc3"
+    ]
+  },
+  {
+    "query": "reinforcement learning and agent training",
+    "relevant_docs": [
+      "doc9"
+    ],
+    "irrelevant_docs": [
+      "doc3",
+      "doc4"
+    ]
+  },
+  {
+    "query": "AI ethics fairness and bias mitigation",
+    "relevant_docs": [
+      "doc10"
+    ],
+    "irrelevant_docs": [
+      "doc1",
+      "doc2"
+    ]
+  },
+  {
+    "query": "transformers BERT language models embeddings",
+    "relevant_docs": [
+      "doc3",
+      "doc2"
+    ],
+    "irrelevant_docs": [
+      "doc4",
+      "doc5"
+    ]
+  },
+  {
+    "query": "CNN ResNet image classification",
+    "relevant_docs": [
+      "doc4",
+      "doc2"
+    ],
+    "irrelevant_docs": [
+      "doc3",
+      "doc5"
+    ]
+  },
+  {
+    "query": "data science workflow exploratory analysis",
+    "relevant_docs": [
+      "doc6",
+      "doc7"
+    ],
+    "irrelevant_docs": [
+      "doc2",
+      "doc8"
+    ]
+  },
+  {
+    "query": "PyTorch TensorFlow frameworks training",
+    "relevant_docs": [
+      "doc2",
+      "doc1"
+    ],
+    "irrelevant_docs": [
+      "doc3",
+      "doc5"
+    ]
+  },
+  {
+    "query": "privacy differential privacy federated learning",
+    "relevant_docs": [
+      "doc10",
+      "doc8"
+    ],
+    "irrelevant_docs": [
+      "doc1",
+      "doc2"
+    ]
+  }
+]

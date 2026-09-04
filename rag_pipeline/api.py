@@ -239,8 +239,6 @@ async def upload_document(file: UploadFile = File(...)):
 
         # MIME type validation
         file_ext = Path(file.filename).suffix.lower()
-        mime_type, _ = mimetypes.guess_type(file.filename)
-        mime_type = mime_type or ""
 
         supported_extensions = {
             ".pdf", ".txt", ".md", ".markdown", ".docx", ".html", ".json",
@@ -280,24 +278,47 @@ async def upload_document(file: UploadFile = File(...)):
 
             if result["status"] == "error":
                 status_code = 400
-                raise HTTPException(status_code=400, detail=result.get("error", "Ingestion failed"))
+                return DocumentIngestionResponse(
+                    document_id="",
+                    file_name=file.filename,
+                    chunk_count=0,
+                    status="error",
+                    error=result.get("error", "Ingestion failed")
+                )
 
             metrics.record_upload(len(content))
             status_code = 200
             return DocumentIngestionResponse(**result)
 
+        except DocumentIngestionResponse as e:
+            raise
         except HTTPException:
             raise
         except Exception as e:
             status_code = 500
-            raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+            error_msg = str(e)
+            return DocumentIngestionResponse(
+                document_id="",
+                file_name=file.filename,
+                chunk_count=0,
+                status="error",
+                error=f"Upload failed: {error_msg}"
+            )
         finally:
             # Clean up temporary file
             if file_path.exists():
-                file_path.unlink()
+                try:
+                    file_path.unlink()
+                except:
+                    pass
 
-    finally:
+    except HTTPException:
         metrics.record_request("/upload", time.time() - start, status_code)
+        raise
+    except Exception as e:
+        status_code = 500
+        metrics.record_request("/upload", time.time() - start, status_code)
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
 @app.post("/query", response_model=QueryResponse)

@@ -117,8 +117,19 @@ def get_llm_client(provider: str = "gemini", **kwargs: Any) -> Any:
         ValueError: If provider is unknown.
     """
     if provider == "gemini":
-        return GeminiClient(**kwargs)
+        # Use environment or kwargs
+        api_key = kwargs.get("api_key") or os.getenv("GEMINI_API_KEY")
+        model = kwargs.get("model", "gemini-1.5-flash")
+        temperature = kwargs.get("temperature", 0.1)
+        max_tokens = kwargs.get("max_tokens", 1024)
+        return GeminiClient(
+            api_key=api_key,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
     elif provider == "fake":
-        return FakeLLMClient(**kwargs)
+        response = kwargs.get("response", "Based on the provided context: This is a test answer [chunk_123].")
+        return FakeLLMClient(response=response)
     else:
         raise ValueError(f"Unknown LLM provider: {provider}")

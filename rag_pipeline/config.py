@@ -41,6 +41,14 @@ class Settings(BaseSettings):
     top_k: int = 5
     min_similarity_score: float = 0.0
 
+    # Generation (LLM)
+    llm_provider: str = "fake"  # "gemini" or "fake"
+    llm_model: str = "gemini-1.5-flash"
+    llm_temperature: float = 0.1
+    llm_max_tokens: int = 1024
+    abstain_threshold: float = 0.35
+    gemini_api_key: str | None = None
+
     # Kaggle
     kaggle_datasets_dir: Path = Path("./data/kaggle_datasets")
 

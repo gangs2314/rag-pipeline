@@ -37,10 +37,11 @@ Document → Loader → Chunker → Embeddings → Vector Store
 1. **Loaders** (`loaders.py`): Extract text from various file formats while preserving structure
 2. **Chunking** (`chunking.py`): Split documents intelligently with multiple strategies
 3. **Vector Store** (`vector_store.py`): Abstract interface for ChromaDB and Qdrant
-4. **Pipeline** (`pipeline.py`): Orchestrate the complete ingestion and retrieval workflow
-5. **API** (`api.py`): FastAPI REST endpoints for document management and querying
-6. **CLI** (`cli.py`): Command-line interface for local operations
-7. **Kaggle Integration** (`kaggle_integration.py`): Download sample datasets for testing
+4. **Generation** (`generation/`): LLM-powered answer generation with citations and abstention
+5. **Pipeline** (`pipeline.py`): Orchestrate the complete ingestion and retrieval workflow
+6. **API** (`api.py`): FastAPI REST endpoints for document management and querying
+7. **CLI** (`cli.py`): Command-line interface for local operations
+8. **Kaggle Integration** (`kaggle_integration.py`): Download sample datasets for testing
 
 ## 🐳 Docker Demo (One-Command Setup)
 

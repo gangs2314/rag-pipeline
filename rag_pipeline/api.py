@@ -23,6 +23,7 @@ class QueryRequest(BaseModel):
     query: str
     top_k: Optional[int] = None
     mode: Optional[str] = "semantic"  # 'semantic', 'keyword', or 'hybrid'
+    rerank: bool = False  # Apply cross-encoder reranking
 
 
 class QueryResponse(BaseModel):
@@ -423,7 +424,12 @@ async def query_documents(request: QueryRequest):
 
         try:
             pipeline = get_pipeline()
-            result = pipeline.query(request.query, request.top_k, mode=mode)
+            result = pipeline.query(
+                request.query,
+                request.top_k,
+                mode=mode,
+                rerank=request.rerank,
+            )
 
             if result["status"] == "error":
                 status_code = 500

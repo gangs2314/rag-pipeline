@@ -5,9 +5,11 @@ from pathlib import Path
 from typing import Optional
 
 from sentence_transformers import SentenceTransformer
+
+from rag_pipeline.chunking import ChunkingStrategyFactory
 from rag_pipeline.config import settings
 from rag_pipeline.loaders import DocumentLoaderFactory
-from rag_pipeline.chunking import ChunkingStrategyFactory
+from rag_pipeline.retrieval import get_reranker
 from rag_pipeline.vector_store import VectorStoreFactory
 
 
@@ -111,7 +113,13 @@ class RAGPipeline:
                 "error": str(e),
             }
 
-    def query(self, query_text: str, top_k: Optional[int] = None, mode: str = "semantic") -> dict:
+    def query(
+        self,
+        query_text: str,
+        top_k: Optional[int] = None,
+        mode: str = "semantic",
+        rerank: bool = False,
+    ) -> dict:
         """
         Query the RAG pipeline for relevant chunks.
 
@@ -119,6 +127,7 @@ class RAGPipeline:
             query_text: User query
             top_k: Number of top results (uses settings.top_k if None)
             mode: Search mode - 'semantic', 'keyword', or 'hybrid'
+            rerank: Whether to apply cross-encoder reranking
 
         Returns:
             dict with search results
@@ -133,12 +142,26 @@ class RAGPipeline:
                 mode=mode,
             )
 
+            # Convert to dicts for potential reranking
+            result_dicts = [r.to_dict() for r in results]
+
+            # Apply reranking if requested
+            if rerank and result_dicts:
+                try:
+                    reranker = get_reranker("cross-encoder")
+                    reranked = reranker.rerank(query_text, result_dicts, top_k=top_k)
+                    result_dicts = reranked
+                except Exception as e:
+                    # Log reranking failure but continue with original results
+                    print(f"Reranking failed: {e}")
+
             return {
                 "query": query_text,
-                "result_count": len(results),
-                "results": [r.to_dict() for r in results],
+                "result_count": len(result_dicts),
+                "results": result_dicts,
                 "status": "success",
                 "mode": mode,
+                "reranked": rerank,
             }
 
         except Exception as e:

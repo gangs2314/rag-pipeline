@@ -1,19 +1,20 @@
 """FastAPI REST API for RAG pipeline."""
 
-import mimetypes
 import time
-from pathlib import Path
-from typing import Optional
 from collections import defaultdict
 from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Optional
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query
-from fastapi.responses import JSONResponse, PlainTextResponse
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from rag_pipeline.config import settings
+from rag_pipeline.generation import generate_answer, get_llm_client
 from rag_pipeline.pipeline import get_pipeline
+
 
 # Pydantic models for request/response
 class QueryRequest(BaseModel):
@@ -31,6 +32,60 @@ class QueryResponse(BaseModel):
     result_count: int
     results: list[dict]
     status: str
+
+
+class AnswerRequest(BaseModel):
+    """Answer request model."""
+
+    query: str
+    top_k: int = 5
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "query": "What is machine learning?",
+                "top_k": 5,
+            }
+        }
+
+
+class CitationModel(BaseModel):
+    """Citation in answer."""
+
+    chunk_id: str
+    chunk_index: int
+    source_file: Optional[str] = None
+    page_number: Optional[int] = None
+
+
+class AnswerResponse(BaseModel):
+    """Answer response model."""
+
+    query: str
+    answer: str
+    citations: list[CitationModel] = []
+    confidence: float
+    abstained: bool
+    status: str
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "query": "What is machine learning?",
+                "answer": "Machine learning is a subset of AI [chunk_1].",
+                "citations": [
+                    {
+                        "chunk_id": "chunk_1",
+                        "chunk_index": 1,
+                        "source_file": "ml.pdf",
+                        "page_number": 3,
+                    }
+                ],
+                "confidence": 0.92,
+                "abstained": False,
+                "status": "success",
+            }
+        }
 
 
 class DocumentIngestionResponse(BaseModel):
@@ -249,7 +304,10 @@ async def upload_document(file: UploadFile = File(...)):
             status_code = 400
             raise HTTPException(
                 status_code=400,
-                detail=f"Unsupported file type: {file_ext}. Supported: {', '.join(supported_extensions)}"
+                detail=(
+                    f"Unsupported file type: {file_ext}. "
+                    f"Supported: {', '.join(supported_extensions)}"
+                )
             )
 
         # Check file size
@@ -290,7 +348,7 @@ async def upload_document(file: UploadFile = File(...)):
             status_code = 200
             return DocumentIngestionResponse(**result)
 
-        except DocumentIngestionResponse as e:
+        except DocumentIngestionResponse:
             raise
         except HTTPException:
             raise
@@ -309,7 +367,7 @@ async def upload_document(file: UploadFile = File(...)):
             if file_path.exists():
                 try:
                     file_path.unlink()
-                except:
+                except OSError:
                     pass
 
     except HTTPException:
@@ -383,6 +441,103 @@ async def query_documents(request: QueryRequest):
 
     finally:
         metrics.record_request("/query", time.time() - start, status_code)
+
+
+@app.post("/answer", response_model=AnswerResponse)
+async def answer_question(request: AnswerRequest):
+    """
+    Generate an answer to a query using retrieved documents.
+
+    Retrieves relevant chunks, then generates a natural language answer with:
+    - Answer text citing source chunks
+    - Citations with source metadata
+    - Confidence score based on retrieval quality
+    - Abstention flag if confidence is too low
+
+    Returns 200 with answer or 400/500 on error.
+    """
+    start = time.time()
+    status_code = 200
+
+    try:
+        # Rate limiting
+        if not rate_limiter.is_allowed("answer"):
+            status_code = 429
+            metrics.record_request("/answer", time.time() - start, status_code)
+            raise HTTPException(
+                status_code=429,
+                detail="Rate limit exceeded. Maximum 100 requests per minute."
+            )
+
+        if not request.query or len(request.query.strip()) == 0:
+            status_code = 400
+            raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+        try:
+            # Retrieve relevant chunks
+            pipeline = get_pipeline()
+            retrieval_result = pipeline.query(
+                request.query, request.top_k, mode="semantic"
+            )
+
+            if retrieval_result["status"] == "error":
+                status_code = 500
+                raise HTTPException(
+                    status_code=500,
+                    detail=retrieval_result.get("error", "Retrieval failed")
+                )
+
+            # Convert retrieval results to chunk format for generation
+            chunks = []
+            for result in retrieval_result.get("results", []):
+                chunks.append({
+                    "content": result.get("content", ""),
+                    "metadata": result.get("metadata", {}),
+                    "score": result.get("similarity_score", 0.0),
+                })
+
+            # Generate answer
+            llm_provider = settings.llm_provider or "fake"
+            llm_client = get_llm_client(llm_provider)
+            abstain_threshold = settings.abstain_threshold or 0.35
+
+            answer_result = await generate_answer(
+                request.query,
+                chunks,
+                llm_client,
+                abstain_threshold=abstain_threshold,
+            )
+
+            # Convert citations
+            citations = [
+                CitationModel(
+                    chunk_id=c.chunk_id,
+                    chunk_index=c.chunk_index,
+                    source_file=c.source_file,
+                    page_number=c.page_number,
+                )
+                for c in answer_result.citations
+            ]
+
+            metrics.record_query()
+            status_code = 200
+            return AnswerResponse(
+                query=request.query,
+                answer=answer_result.answer,
+                citations=citations,
+                confidence=answer_result.confidence,
+                abstained=answer_result.abstained,
+                status="success",
+            )
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            status_code = 500
+            raise HTTPException(status_code=500, detail=f"Answer generation failed: {str(e)}")
+
+    finally:
+        metrics.record_request("/answer", time.time() - start, status_code)
 
 
 @app.get("/stats")

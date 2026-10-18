@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     abstain_threshold: float = 0.35
     gemini_api_key: str | None = None
 
+    # Security (Auth)
+    api_keys: str | None = None  # Format: "KEY1:TENANT1,KEY2:TENANT2"
+
     # Kaggle
     kaggle_datasets_dir: Path = Path("./data/kaggle_datasets")
 

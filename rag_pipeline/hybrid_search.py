@@ -1,7 +1,8 @@
 """Hybrid search combining BM25 keyword search with dense vector similarity."""
 
-from typing import Optional
 import re
+from typing import Optional
+
 import numpy as np
 
 
@@ -29,7 +30,7 @@ class BM25Search:
     def _tokenize(self, text: str) -> list[str]:
         """Simple tokenization."""
         # Convert to lowercase and split on non-alphanumeric
-        tokens = re.findall(r'\b\w+\b', text.lower())
+        tokens = re.findall(r"\b\w+\b", text.lower())
         return tokens
 
     def search(self, query: str, top_k: int = 5) -> list[tuple[str, float]]:
@@ -52,9 +53,7 @@ class BM25Search:
         top_indices = np.argsort(scores)[::-1][:top_k]
 
         results = [
-            (self.doc_ids[idx], float(scores[idx]))
-            for idx in top_indices
-            if scores[idx] > 0
+            (self.doc_ids[idx], float(scores[idx])) for idx in top_indices if scores[idx] > 0
         ]
         return results
 
@@ -95,10 +94,7 @@ class CrossEncoderReranker:
             return []
 
         # Create query-document pairs
-        pairs = [
-            [query, doc["content"]]
-            for doc in documents
-        ]
+        pairs = [[query, doc["content"]] for doc in documents]
 
         # Get cross-encoder scores
         scores = self.model.predict(pairs)
@@ -108,10 +104,7 @@ class CrossEncoderReranker:
         indexed_scores.sort(key=lambda x: x[1], reverse=True)
 
         # Return top-k with doc IDs
-        results = [
-            (documents[idx]["id"], float(score))
-            for idx, score in indexed_scores[:top_k]
-        ]
+        results = [(documents[idx]["id"], float(score)) for idx, score in indexed_scores[:top_k]]
         return results
 
 
@@ -227,8 +220,8 @@ class HybridSearcher:
         for doc in documents:
             doc_embedding = self.embedding_model.encode(doc["content"])
             similarity = float(
-                np.dot(query_embedding, doc_embedding) /
-                (np.linalg.norm(query_embedding) * np.linalg.norm(doc_embedding) + 1e-8)
+                np.dot(query_embedding, doc_embedding)
+                / (np.linalg.norm(query_embedding) * np.linalg.norm(doc_embedding) + 1e-8)
             )
             scores.append((doc["id"], similarity))
 
@@ -277,10 +270,6 @@ class HybridSearcher:
             return []
 
         # Sort by fused score
-        sorted_results = sorted(
-            fused_scores.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )[:top_k]
+        sorted_results = sorted(fused_scores.items(), key=lambda x: x[1], reverse=True)[:top_k]
 
         return sorted_results

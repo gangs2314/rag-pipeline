@@ -2,8 +2,8 @@
 
 import hashlib
 from abc import ABC, abstractmethod
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 try:
     from langchain.schema import Document
@@ -12,13 +12,13 @@ except ImportError:
 
 try:
     from langchain_text_splitters import (
-        RecursiveCharacterTextSplitter,
         MarkdownHeaderTextSplitter,
+        RecursiveCharacterTextSplitter,
     )
 except ImportError:
     from langchain.text_splitter import (
-        RecursiveCharacterTextSplitter,
         MarkdownHeaderTextSplitter,
+        RecursiveCharacterTextSplitter,
     )
 
 
@@ -40,11 +40,7 @@ class BaseChunkingStrategy(ABC):
         return hashlib.sha256(content.encode()).hexdigest()
 
     def _add_chunk_metadata(
-        self,
-        chunk: Document,
-        chunk_index: int,
-        parent_id: Optional[str] = None,
-        **kwargs
+        self, chunk: Document, chunk_index: int, parent_id: Optional[str] = None, **kwargs
     ) -> Document:
         """Add standard chunking metadata to document."""
         chunk.metadata["chunk_index"] = chunk_index
@@ -269,6 +265,7 @@ class SemanticChunkingStrategy(BaseChunkingStrategy):
         if self._embedding_model is None:
             try:
                 from sentence_transformers import SentenceTransformer
+
                 self._embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
             except Exception as e:
                 raise RuntimeError(f"Failed to load embedding model for semantic chunking: {e}")
@@ -277,15 +274,19 @@ class SemanticChunkingStrategy(BaseChunkingStrategy):
     def _split_into_sentences(self, text: str) -> list[str]:
         """Split text into sentences."""
         import re
+
         # Split on sentence boundaries
-        sentences = re.split(r'(?<=[.!?])\s+', text)
+        sentences = re.split(r"(?<=[.!?])\s+", text)
         return [s.strip() for s in sentences if s.strip()]
 
     def _compute_similarity(self, embedding1, embedding2) -> float:
         """Compute cosine similarity between two embeddings."""
         import numpy as np
-        return float(np.dot(embedding1, embedding2) /
-                     (np.linalg.norm(embedding1) * np.linalg.norm(embedding2) + 1e-8))
+
+        return float(
+            np.dot(embedding1, embedding2)
+            / (np.linalg.norm(embedding1) * np.linalg.norm(embedding2) + 1e-8)
+        )
 
     def chunk(self, documents: list[Document]) -> list[Document]:
         """Split documents using semantic similarity between consecutive sentences."""
@@ -323,8 +324,8 @@ class SemanticChunkingStrategy(BaseChunkingStrategy):
 
                 # Decide whether to split
                 should_split = (
-                    similarity < self.similarity_threshold or
-                    current_size + len(sentences[i]) > self.chunk_size * 1.5
+                    similarity < self.similarity_threshold
+                    or current_size + len(sentences[i]) > self.chunk_size * 1.5
                 )
 
                 if should_split and current_chunk and current_size >= self.min_chunk_size:
@@ -341,10 +342,7 @@ class SemanticChunkingStrategy(BaseChunkingStrategy):
 
             # Create chunk documents
             for chunk_idx, chunk_text in enumerate(chunks_text):
-                chunk_doc = Document(
-                    page_content=chunk_text,
-                    metadata=doc.metadata.copy()
-                )
+                chunk_doc = Document(page_content=chunk_text, metadata=doc.metadata.copy())
                 self._add_chunk_metadata(chunk_doc, chunk_idx)
                 chunked_docs.append(chunk_doc)
 
@@ -368,7 +366,7 @@ class ChunkingStrategyFactory:
         strategy_type: str = "recursive",
         chunk_size: int = 512,
         chunk_overlap: int = 50,
-        **kwargs
+        **kwargs,
     ) -> BaseChunkingStrategy:
         """Create chunking strategy instance."""
         if strategy_type not in cls.STRATEGIES:

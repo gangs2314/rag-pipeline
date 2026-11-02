@@ -29,10 +29,7 @@ def test_noop_reranker_passthrough():
 def test_noop_reranker_top_k():
     """Test NoOpReranker respects top_k."""
     reranker = NoOpReranker()
-    candidates = [
-        {"content": f"Content {i}", "metadata": {"id": i}}
-        for i in range(10)
-    ]
+    candidates = [{"content": f"Content {i}", "metadata": {"id": i}} for i in range(10)]
 
     result = reranker.rerank("query", candidates, top_k=3)
 
@@ -106,12 +103,10 @@ def test_cross_encoder_reranker_reorders():
 
         # The ML content should be ranked higher than sports
         ml_score = next(
-            (r["relevance_score"] for r in result if "machine learning" in r["content"]),
-            None
+            (r["relevance_score"] for r in result if "machine learning" in r["content"]), None
         )
         sports_score = next(
-            (r["relevance_score"] for r in result if "sports" in r["content"]),
-            None
+            (r["relevance_score"] for r in result if "sports" in r["content"]), None
         )
 
         assert ml_score is not None
@@ -129,8 +124,7 @@ def test_cross_encoder_top_k():
     try:
         reranker = CrossEncoderReranker()
         candidates = [
-            {"content": f"Content about topic {i}", "metadata": {"id": i}}
-            for i in range(10)
+            {"content": f"Content about topic {i}", "metadata": {"id": i}} for i in range(10)
         ]
 
         result = reranker.rerank("query", candidates, top_k=3)

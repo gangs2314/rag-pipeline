@@ -1,12 +1,13 @@
 """Tests for hybrid search combining BM25 keyword search with dense vectors."""
 
 import pytest
+
 from rag_pipeline.hybrid_search import BM25Search, CrossEncoderReranker, HybridSearcher
 
 try:
     from langchain.schema import Document
 except ImportError:
-    from langchain_core.documents import Document
+    pass
 
 from sentence_transformers import SentenceTransformer
 
@@ -201,9 +202,7 @@ class TestHybridSearcher:
 
     def test_update_documents(self, embedding_model):
         """Test updating documents in searcher."""
-        initial_docs = [
-            {"id": "doc1", "content": "Test content"}
-        ]
+        initial_docs = [{"id": "doc1", "content": "Test content"}]
         searcher = HybridSearcher(embedding_model, initial_docs)
 
         new_docs = [

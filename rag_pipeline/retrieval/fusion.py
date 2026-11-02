@@ -33,11 +33,7 @@ def rrf_fuse(ranked_lists: list[list[dict]], k: int = 60) -> list[dict]:
             chunk_scores[chunk_id] += 1.0 / (k + rank)
 
     # Sort by RRF score and create result list
-    sorted_chunks = sorted(
-        chunk_scores.items(),
-        key=lambda x: x[1],
-        reverse=True
-    )
+    sorted_chunks = sorted(chunk_scores.items(), key=lambda x: x[1], reverse=True)
 
     results = []
     for chunk_id, rrf_score in sorted_chunks:
@@ -49,9 +45,7 @@ def rrf_fuse(ranked_lists: list[list[dict]], k: int = 60) -> list[dict]:
 
 
 def weighted_fuse(
-    dense_results: list[dict],
-    sparse_results: list[dict],
-    alpha: float = 0.5
+    dense_results: list[dict], sparse_results: list[dict], alpha: float = 0.5
 ) -> list[dict]:
     """Weighted fusion of dense and sparse retrieval results.
 
@@ -110,11 +104,7 @@ def weighted_fuse(
             chunk_data[chunk_id] = result
 
     # Create result list sorted by fused score
-    sorted_chunks = sorted(
-        fused_scores.items(),
-        key=lambda x: x[1],
-        reverse=True
-    )
+    sorted_chunks = sorted(fused_scores.items(), key=lambda x: x[1], reverse=True)
 
     results = []
     for chunk_id, fused_score in sorted_chunks:

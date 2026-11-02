@@ -1,14 +1,15 @@
 """Comprehensive tests for document chunking strategies."""
 
+
 import pytest
-from pathlib import Path
+
 from rag_pipeline.chunking import (
-    SemanticChunkingStrategy,
-    RecursiveCharacterChunkingStrategy,
-    MarkdownHeaderChunkingStrategy,
-    CodeAwareChunkingStrategy,
-    ParentChildChunkingStrategy,
     ChunkingStrategyFactory,
+    CodeAwareChunkingStrategy,
+    MarkdownHeaderChunkingStrategy,
+    ParentChildChunkingStrategy,
+    RecursiveCharacterChunkingStrategy,
+    SemanticChunkingStrategy,
 )
 
 try:
@@ -24,16 +25,14 @@ class TestSemanticChunking:
     def semantic_chunker(self):
         """Create semantic chunker instance."""
         return SemanticChunkingStrategy(
-            chunk_size=512,
-            similarity_threshold=0.75,
-            min_chunk_size=100
+            chunk_size=512, similarity_threshold=0.75, min_chunk_size=100
         )
 
     def test_single_sentence_document(self, semantic_chunker):
         """Test handling of single-sentence documents."""
         doc = Document(
             page_content="This is a single sentence document.",
-            metadata={"source_file": "test.txt", "doc_type": "txt"}
+            metadata={"source_file": "test.txt", "doc_type": "txt"},
         )
         chunks = semantic_chunker.chunk([doc])
 
@@ -44,10 +43,7 @@ class TestSemanticChunking:
 
     def test_empty_document(self, semantic_chunker):
         """Test handling of empty documents."""
-        doc = Document(
-            page_content="",
-            metadata={"source_file": "empty.txt", "doc_type": "txt"}
-        )
+        doc = Document(page_content="", metadata={"source_file": "empty.txt", "doc_type": "txt"})
         chunks = semantic_chunker.chunk([doc])
 
         assert len(chunks) == 1
@@ -70,8 +66,7 @@ class TestSemanticChunking:
         long_text = " ".join(sentences * 5)  # Repeat to make it long
 
         doc = Document(
-            page_content=long_text,
-            metadata={"source_file": "long.txt", "doc_type": "txt"}
+            page_content=long_text, metadata={"source_file": "long.txt", "doc_type": "txt"}
         )
         chunks = semantic_chunker.chunk([doc])
 
@@ -94,23 +89,18 @@ class TestSemanticChunking:
         )
 
         doc = Document(
-            page_content=text,
-            metadata={"source_file": "threshold.txt", "doc_type": "txt"}
+            page_content=text, metadata={"source_file": "threshold.txt", "doc_type": "txt"}
         )
 
         # High threshold - fewer splits
         high_threshold_chunker = SemanticChunkingStrategy(
-            chunk_size=512,
-            similarity_threshold=0.9,
-            min_chunk_size=50
+            chunk_size=512, similarity_threshold=0.9, min_chunk_size=50
         )
         high_chunks = high_threshold_chunker.chunk([doc])
 
         # Low threshold - more splits
         low_threshold_chunker = SemanticChunkingStrategy(
-            chunk_size=512,
-            similarity_threshold=0.5,
-            min_chunk_size=50
+            chunk_size=512, similarity_threshold=0.5, min_chunk_size=50
         )
         low_chunks = low_threshold_chunker.chunk([doc])
 
@@ -125,8 +115,8 @@ class TestSemanticChunking:
                 "source_file": "test.md",
                 "doc_type": "markdown",
                 "page_number": 1,
-                "custom_field": "custom_value"
-            }
+                "custom_field": "custom_value",
+            },
         )
         chunks = semantic_chunker.chunk([doc])
 
@@ -140,7 +130,7 @@ class TestSemanticChunking:
         """Test that chunk indices are unique within document."""
         doc = Document(
             page_content="Sentence one. Sentence two. Sentence three. Sentence four.",
-            metadata={"source_file": "test.txt", "doc_type": "txt"}
+            metadata={"source_file": "test.txt", "doc_type": "txt"},
         )
         chunks = semantic_chunker.chunk([doc])
 
@@ -151,7 +141,7 @@ class TestSemanticChunking:
         """Test handling of unicode characters."""
         doc = Document(
             page_content="Hello world. Café français. 中文文本. Привет мир.",
-            metadata={"source_file": "unicode.txt", "doc_type": "txt"}
+            metadata={"source_file": "unicode.txt", "doc_type": "txt"},
         )
         chunks = semantic_chunker.chunk([doc])
 
@@ -164,7 +154,7 @@ class TestSemanticChunking:
         """Test that content hashes are generated correctly."""
         doc = Document(
             page_content="Test content. With sentences.",
-            metadata={"source_file": "hash.txt", "doc_type": "txt"}
+            metadata={"source_file": "hash.txt", "doc_type": "txt"},
         )
         chunks = semantic_chunker.chunk([doc])
 
@@ -193,11 +183,11 @@ class TestSemanticChunking:
         docs = [
             Document(
                 page_content="First document sentence one. First document sentence two.",
-                metadata={"source_file": "doc1.txt", "doc_type": "txt"}
+                metadata={"source_file": "doc1.txt", "doc_type": "txt"},
             ),
             Document(
                 page_content="Second document sentence one. Second document sentence two.",
-                metadata={"source_file": "doc2.txt", "doc_type": "txt"}
+                metadata={"source_file": "doc2.txt", "doc_type": "txt"},
             ),
         ]
 
@@ -212,14 +202,12 @@ class TestSemanticChunking:
     def test_min_chunk_size_enforcement(self, semantic_chunker):
         """Test that minimum chunk size is respected."""
         chunker = SemanticChunkingStrategy(
-            chunk_size=512,
-            similarity_threshold=0.75,
-            min_chunk_size=100
+            chunk_size=512, similarity_threshold=0.75, min_chunk_size=100
         )
 
         doc = Document(
             page_content="Short. Words. Only.",
-            metadata={"source_file": "short.txt", "doc_type": "txt"}
+            metadata={"source_file": "short.txt", "doc_type": "txt"},
         )
         chunks = chunker.chunk([doc])
 
@@ -233,16 +221,13 @@ class TestRecursiveCharacterChunking:
     @pytest.fixture
     def recursive_chunker(self):
         """Create recursive character chunker."""
-        return RecursiveCharacterChunkingStrategy(
-            chunk_size=100,
-            chunk_overlap=10
-        )
+        return RecursiveCharacterChunkingStrategy(chunk_size=100, chunk_overlap=10)
 
     def test_basic_chunking(self, recursive_chunker):
         """Test basic recursive chunking."""
         doc = Document(
             page_content="This is a test. " * 20,
-            metadata={"source_file": "test.txt", "doc_type": "txt"}
+            metadata={"source_file": "test.txt", "doc_type": "txt"},
         )
         chunks = recursive_chunker.chunk([doc])
 
@@ -254,7 +239,7 @@ class TestRecursiveCharacterChunking:
         """Test that chunks respect size limits (with some tolerance)."""
         doc = Document(
             page_content="Test content. " * 50,
-            metadata={"source_file": "test.txt", "doc_type": "txt"}
+            metadata={"source_file": "test.txt", "doc_type": "txt"},
         )
         chunks = recursive_chunker.chunk([doc])
 
@@ -285,8 +270,7 @@ Content for section 2. More information here.
 Deeper content."""
 
         doc = Document(
-            page_content=markdown_text,
-            metadata={"source_file": "test.md", "doc_type": "markdown"}
+            page_content=markdown_text, metadata={"source_file": "test.md", "doc_type": "markdown"}
         )
         chunks = markdown_chunker.chunk([doc])
 
@@ -303,17 +287,14 @@ class TestParentChildChunking:
     def parent_child_chunker(self):
         """Create parent-child chunker."""
         return ParentChildChunkingStrategy(
-            child_chunk_size=100,
-            child_overlap=10,
-            parent_chunk_size=300,
-            parent_overlap=30
+            child_chunk_size=100, child_overlap=10, parent_chunk_size=300, parent_overlap=30
         )
 
     def test_parent_child_relationship(self, parent_child_chunker):
         """Test that child chunks reference parents."""
         doc = Document(
             page_content="Sentence one. " * 30,
-            metadata={"source_file": "test.txt", "doc_type": "txt"}
+            metadata={"source_file": "test.txt", "doc_type": "txt"},
         )
         chunks = parent_child_chunker.chunk([doc])
 
@@ -368,8 +349,7 @@ class TestChunkingEdgeCases:
         long_word = "a" * 200
 
         doc = Document(
-            page_content=long_word,
-            metadata={"source_file": "long_word.txt", "doc_type": "txt"}
+            page_content=long_word, metadata={"source_file": "long_word.txt", "doc_type": "txt"}
         )
         chunks = chunker.chunk([doc])
 
@@ -382,7 +362,7 @@ class TestChunkingEdgeCases:
 
         doc = Document(
             page_content="   \n\n   \t\t   ",
-            metadata={"source_file": "whitespace.txt", "doc_type": "txt"}
+            metadata={"source_file": "whitespace.txt", "doc_type": "txt"},
         )
         chunks = chunker.chunk([doc])
 
@@ -395,7 +375,7 @@ class TestChunkingEdgeCases:
 
         doc = Document(
             page_content="Special @#$% characters. More !@#$ symbols. Regular text.",
-            metadata={"source_file": "special.txt", "doc_type": "txt"}
+            metadata={"source_file": "special.txt", "doc_type": "txt"},
         )
         chunks = chunker.chunk([doc])
 

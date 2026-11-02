@@ -1,21 +1,22 @@
 """Comprehensive tests for document loaders."""
 
-import pytest
 import json
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from rag_pipeline.loaders import (
-    DocumentLoaderFactory,
-    TextDocumentLoader,
-    JSONDocumentLoader,
     CodeDocumentLoader,
+    DocumentLoaderFactory,
+    JSONDocumentLoader,
+    TextDocumentLoader,
 )
 
 try:
     from langchain.schema import Document
 except ImportError:
-    from langchain_core.documents import Document
+    pass
 
 
 class TestTextDocumentLoader:
@@ -69,7 +70,9 @@ class TestTextDocumentLoader:
 
     def test_load_unicode_content(self):
         """Test loading file with unicode characters."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False, encoding="utf-8"
+        ) as f:
             f.write("Hello 世界 🌍 Привет")
             temp_path = f.name
 
@@ -106,12 +109,7 @@ class TestJSONDocumentLoader:
     def test_load_nested_json(self):
         """Test loading nested JSON structure."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            data = {
-                "user": {
-                    "name": "Alice",
-                    "details": {"age": 25, "city": "NYC"}
-                }
-            }
+            data = {"user": {"name": "Alice", "details": {"age": 25, "city": "NYC"}}}
             json.dump(data, f)
             temp_path = f.name
 

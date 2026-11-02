@@ -140,7 +140,7 @@ JSON-structured logs (structlog) with optional OTLP exporter; query_id threaded 
 ### Rationale
 - **Structured logs**: Machine-parseable (JSON); enables log aggregation, filtering, dashboards
 - **Query ID**: Trace a single request through retrieval→rerank→generation (end-to-end debugging)
-- **OTLP optional**: Works without external collector; seamless if Jaeger/Tempo added later
+- **OTLP optional**: Works without external collector; compatible with Jaeger/Tempo if added
 - **No performance penalty**: BatchSpanProcessor in non-blocking thread
 
 ### Alternative Rejected
@@ -220,7 +220,7 @@ All new features (reranking, /answer) are opt-in; existing /query, /upload, /hea
 
 ## Conclusion
 
-This production-grade RAG pipeline balances **correctness** (hybrid search, reranking, citations), **observability** (structured logging, tracing), and **safety** (auth, tenant isolation). All key decisions are validated empirically via the 50-query evaluation suite.
+The RAG pipeline balances correctness (hybrid search, reranking, citations), observability (structured logging, tracing), and safety (auth, tenant isolation). All key decisions are validated via the 50-query evaluation suite.
 
 **Next priorities if expanding**:
 1. Vector-only filtering (Qdrant metadata filtering for tenant_id)

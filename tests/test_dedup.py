@@ -1,6 +1,5 @@
 """Comprehensive tests for deduplication module."""
 
-import pytest
 from rag_pipeline.deduplication import (
     ContentNormalizer,
     DedupliationTracker,
@@ -76,7 +75,6 @@ class TestContentNormalizer:
         """Test similarity score for identical texts."""
         text = "the quick brown fox"
         sig1 = ContentNormalizer.get_content_signature(text)
-        sig2 = ContentNormalizer.get_content_signature(text)
 
         if len(sig1) > 0:
             score = ContentNormalizer.similarity_score(text, text)
@@ -316,7 +314,7 @@ class TestDedupEdgeCases:
         content2 = "cafe"
 
         r1 = tracker.add_content(content1, "chunk1")
-        r2 = tracker.add_content(content2, "chunk2")
+        tracker.add_content(content2, "chunk2")
 
         # Should be treated as different after normalization
         assert r1 is True

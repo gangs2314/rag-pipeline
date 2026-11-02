@@ -1,6 +1,5 @@
 """Kaggle dataset integration for downloading sample documents."""
 
-import os
 import shutil
 from pathlib import Path
 from typing import Optional

@@ -6,9 +6,7 @@ from typing import Optional
 from rag_pipeline.security.auth import TenantContext
 
 # Context variable to store current tenant
-_tenant_context: ContextVar[Optional[TenantContext]] = ContextVar(
-    "tenant_context", default=None
-)
+_tenant_context: ContextVar[Optional[TenantContext]] = ContextVar("tenant_context", default=None)
 
 
 def set_tenant_context(context: TenantContext) -> None:

@@ -85,4 +85,3 @@ def test_answer_high_confidence_not_abstained(client):
 
     # Just verify we get a boolean
     assert isinstance(data["abstained"], bool)
-

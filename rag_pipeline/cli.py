@@ -6,9 +6,8 @@ from typing import Optional
 
 import click
 
-from rag_pipeline.pipeline import get_pipeline
 from rag_pipeline.kaggle_integration import get_kaggle
-from rag_pipeline.config import settings
+from rag_pipeline.pipeline import get_pipeline
 
 
 @click.group()
@@ -72,7 +71,7 @@ def ingest(file_path: str):
             click.secho(f"Error: {result.get('error')}", fg="red")
             sys.exit(1)
 
-        click.secho("✓ Document ingested successfully", fg="green")
+        click.secho("Document ingested successfully", fg="green")
         click.echo(f"  Document ID: {result['document_id']}")
         click.echo(f"  Chunks created: {result['chunk_count']}")
         click.echo(f"  Chunks upserted: {result['upserted_count']}")
@@ -124,14 +123,14 @@ def stats():
         pipeline = get_pipeline()
         stats_data = pipeline.get_stats()
 
-        click.echo("\n=== RAG Pipeline Statistics ===\n")
+        click.echo("\nRAG Pipeline Statistics\n")
         click.echo(f"Vector Store Type: {stats_data.get('vector_store_type')}")
         click.echo(f"Total Documents: {stats_data.get('document_count')}")
         click.echo(f"Registered Documents: {stats_data.get('registered_documents')}")
         click.echo(f"Embedding Model: {stats_data.get('embedding_model')}")
 
         chunking = stats_data.get("chunking_config", {})
-        click.echo(f"\nChunking Configuration:")
+        click.echo("\nChunking Configuration:")
         click.echo(f"  Chunk Size: {chunking.get('chunk_size')} tokens")
         click.echo(f"  Chunk Overlap: {chunking.get('chunk_overlap')} tokens")
         click.echo(f"  Parent-Child Chunking: {chunking.get('use_parent_child')}")
@@ -174,7 +173,7 @@ def download_dataset(dataset_name: str, output: Optional[str], force: bool):
             click.secho(f"Error: {result.get('error')}", fg="red")
             sys.exit(1)
 
-        click.secho("✓ Dataset downloaded successfully", fg="green")
+        click.secho("Dataset downloaded successfully", fg="green")
         click.echo(f"  Path: {result.get('path')}")
         click.echo(f"  New download: {result.get('new_download')}")
 
@@ -221,7 +220,7 @@ def delete_dataset(dataset_name: str):
             click.secho(f"Error: {result.get('error')}", fg="red")
             sys.exit(1)
 
-        click.secho("✓ Dataset deleted", fg="green")
+        click.secho("Dataset deleted", fg="green")
 
     except Exception as e:
         click.secho(f"Error: {e}", fg="red")
@@ -275,7 +274,7 @@ def batch_ingest(directory: str, ext: tuple):
                     failed += 1
                     click.echo(f"\nFailed: {file_path.name} - {result.get('error')}")
 
-        click.secho(f"\n✓ Batch ingest complete", fg="green")
+        click.secho("\nBatch ingest complete", fg="green")
         click.echo(f"  Successful: {successful}")
         click.echo(f"  Failed: {failed}")
 

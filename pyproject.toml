@@ -8,10 +8,10 @@ packages = ["rag_pipeline"]
 [project]
 name = "rag-pipeline"
 version = "0.1.0"
-description = "Production-grade Retrieval-Augmented Generation pipeline with document ingestion and semantic search"
+description = "RAG pipeline prototype for document ingestion, semantic search, and answer generation"
 requires-python = ">=3.10"
 authors = [
-    {name = "RAG Team", email = "team@example.com"},
+    {name = "TODO: Your Name", email = "TODO: your.email@example.com"},
 ]
 license = {text = "MIT"}
 

@@ -67,16 +67,10 @@ async def require_api_key(
 
     # Auth is enabled - require valid API key
     if not x_api_key:
-        raise HTTPException(
-            status_code=401,
-            detail="Missing X-API-Key header"
-        )
+        raise HTTPException(status_code=401, detail="Missing X-API-Key header")
 
     if x_api_key not in api_key_mapping:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid API key"
-        )
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
     tenant_id = api_key_mapping[x_api_key]
     return TenantContext(tenant_id=tenant_id, api_key=x_api_key)

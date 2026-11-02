@@ -55,6 +55,7 @@ def test_get_llm_client_unknown_provider():
 def test_gemini_client_requires_api_key():
     """Test GeminiClient raises if GEMINI_API_KEY not set."""
     import os
+
     old_key = os.environ.get("GEMINI_API_KEY")
     try:
         os.environ.pop("GEMINI_API_KEY", None)

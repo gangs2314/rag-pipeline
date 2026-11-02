@@ -104,10 +104,7 @@ def test_format_context_block_no_page_number():
 
 def test_format_context_block_ordering():
     """Test format_context_block maintains chunk order."""
-    chunks = [
-        {"content": f"Chunk {i}", "metadata": {"chunk_id": f"id{i}"}}
-        for i in range(1, 4)
-    ]
+    chunks = [{"content": f"Chunk {i}", "metadata": {"chunk_id": f"id{i}"}} for i in range(1, 4)]
     result = format_context_block(chunks)
 
     lines = result.split("\n")

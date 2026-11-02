@@ -1,20 +1,19 @@
 """Production-ready test suite for RAG Pipeline."""
 
-import asyncio
 import json
 import time
-from pathlib import Path
-from typing import List
 
-import pytest
 import httpx
-from rag_pipeline.pipeline import get_pipeline
-from rag_pipeline.loaders import DocumentLoaderFactory
+import pytest
+
 from rag_pipeline.config import settings
+from rag_pipeline.loaders import DocumentLoaderFactory
+from rag_pipeline.pipeline import get_pipeline
 
 
 class TestConstants:
     """Test configuration constants."""
+
     API_BASE = "http://localhost:8000"
     TIMEOUT = 30.0
     SAMPLE_QUERY = "What is the main topic?"
@@ -69,8 +68,8 @@ class TestDocumentUpload:
     def test_pdf_upload(self, api_client, tmp_path):
         """Test PDF file upload."""
         try:
-            from reportlab.pdfgen import canvas
             from reportlab.lib.pagesizes import letter
+            from reportlab.pdfgen import canvas
         except ImportError:
             pytest.skip("reportlab not installed")
 
@@ -144,10 +143,7 @@ class TestQueryFunctionality:
 
     def test_simple_query(self, api_client):
         """Test simple query."""
-        payload = {
-            "query": "What is this document about?",
-            "top_k": 5
-        }
+        payload = {"query": "What is this document about?", "top_k": 5}
         response = api_client.post("/query", json=payload)
 
         assert response.status_code == 200
@@ -380,9 +376,7 @@ class TestErrorHandling:
     def test_malformed_json(self, api_client):
         """Test handling of malformed JSON."""
         response = api_client.post(
-            "/query",
-            content=b"invalid json",
-            headers={"Content-Type": "application/json"}
+            "/query", content=b"invalid json", headers={"Content-Type": "application/json"}
         )
         assert response.status_code >= 400
 
@@ -583,4 +577,3 @@ class TestProductionRobustness:
         for _ in range(5):
             response = api_client.get("/metrics")
             assert response.status_code == 200
-

@@ -1,8 +1,9 @@
 """Regression tests for evaluation metrics."""
 
 import json
-import pytest
 from pathlib import Path
+
+import pytest
 
 
 def test_eval_report_exists():

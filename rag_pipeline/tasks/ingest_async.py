@@ -37,7 +37,8 @@ class IngestJobDB:
     def _init_db(self) -> None:
         """Initialize database schema."""
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 CREATE TABLE IF NOT EXISTS ingest_jobs (
                     job_id TEXT PRIMARY KEY,
                     file_name TEXT NOT NULL,
@@ -49,7 +50,8 @@ class IngestJobDB:
                     created_at TEXT NOT NULL,
                     completed_at TEXT
                 )
-            """)
+            """
+            )
             conn.commit()
 
     def create_job(self, file_name: str, file_hash: str) -> str:
@@ -66,11 +68,14 @@ class IngestJobDB:
         now = datetime.utcnow().isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT INTO ingest_jobs
                 (job_id, file_name, file_hash, status, created_at)
                 VALUES (?, ?, ?, ?, ?)
-            """, (job_id, file_name, file_hash, JobStatus.PENDING, now))
+            """,
+                (job_id, file_name, file_hash, JobStatus.PENDING, now),
+            )
             conn.commit()
 
         return job_id
@@ -86,10 +91,7 @@ class IngestJobDB:
         """
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            cursor = conn.execute(
-                "SELECT * FROM ingest_jobs WHERE job_id = ?",
-                (job_id,)
-            )
+            cursor = conn.execute("SELECT * FROM ingest_jobs WHERE job_id = ?", (job_id,))
             row = cursor.fetchone()
             return dict(row) if row else None
 
@@ -115,12 +117,15 @@ class IngestJobDB:
             completed_at = datetime.utcnow().isoformat()
 
         with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
+            conn.execute(
+                """
                 UPDATE ingest_jobs
                 SET status = ?, progress = ?, chunk_count = ?,
                     error = ?, completed_at = ?
                 WHERE job_id = ?
-            """, (status, progress, chunk_count, error, completed_at, job_id))
+            """,
+                (status, progress, chunk_count, error, completed_at, job_id),
+            )
             conn.commit()
 
     def get_file_hash(self, file_path: Path) -> str:
@@ -177,11 +182,7 @@ async def ingest_document_async(
         # Ingest document (runs in default executor - non-blocking)
         pipeline = get_pipeline()
         loop = asyncio.get_event_loop()
-        result = await loop.run_in_executor(
-            None,
-            pipeline.ingest_document,
-            file_path
-        )
+        result = await loop.run_in_executor(None, pipeline.ingest_document, file_path)
 
         chunk_count = result.get("chunk_count", 0)
         job_db.update_job_status(

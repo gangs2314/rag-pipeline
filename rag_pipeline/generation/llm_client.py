@@ -129,7 +129,9 @@ def get_llm_client(provider: str = "gemini", **kwargs: Any) -> Any:
             max_tokens=max_tokens,
         )
     elif provider == "fake":
-        response = kwargs.get("response", "Based on the provided context: This is a test answer [chunk_123].")
+        response = kwargs.get(
+            "response", "Based on the provided context: This is a test answer [chunk_123]."
+        )
         return FakeLLMClient(response=response)
     else:
         raise ValueError(f"Unknown LLM provider: {provider}")

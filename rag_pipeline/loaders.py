@@ -2,9 +2,9 @@
 
 import json
 from abc import ABC, abstractmethod
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
 
 try:
     from langchain.schema import Document
@@ -60,7 +60,9 @@ class PDFDocumentLoader(BaseDocumentLoader):
         try:
             import pdfplumber
         except ImportError:
-            raise ImportError("pdfplumber is required for PDF loading. Install with: pip install pdfplumber")
+            raise ImportError(
+                "pdfplumber is required for PDF loading. Install with: pip install pdfplumber"
+            )
 
         documents = []
         try:
@@ -92,7 +94,6 @@ class DocxDocumentLoader(BaseDocumentLoader):
 
         doc = DocxDocument(self.file_path)
         paragraphs = []
-        current_section = None
 
         for element in doc.element.body:
             if element.tag.endswith("p"):
@@ -102,8 +103,6 @@ class DocxDocumentLoader(BaseDocumentLoader):
                 )
                 if para:
                     style = para.style.name if para.style else "Normal"
-                    if "Heading" in style:
-                        current_section = para.text
                     if para.text.strip():
                         paragraphs.append(para.text)
 
@@ -119,7 +118,9 @@ class HTMLDocumentLoader(BaseDocumentLoader):
         try:
             from bs4 import BeautifulSoup
         except ImportError:
-            raise ImportError("beautifulsoup4 is required. Install with: pip install beautifulsoup4")
+            raise ImportError(
+                "beautifulsoup4 is required. Install with: pip install beautifulsoup4"
+            )
 
         html_content = self.file_path.read_text(encoding="utf-8")
         soup = BeautifulSoup(html_content, "html.parser")

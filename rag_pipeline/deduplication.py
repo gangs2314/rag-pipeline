@@ -1,9 +1,9 @@
 """Advanced deduplication system using multiple strategies."""
 
 import hashlib
-from typing import Set, Tuple
-from collections import defaultdict
 import re
+from collections import defaultdict
+from typing import Set, Tuple
 
 
 class ContentNormalizer:
@@ -22,13 +22,13 @@ class ContentNormalizer:
         text = text.lower()
 
         # Remove extra whitespace
-        text = ' '.join(text.split())
+        text = " ".join(text.split())
 
         # Remove special characters but keep words
-        text = re.sub(r'[^\w\s]', '', text)
+        text = re.sub(r"[^\w\s]", "", text)
 
         # Remove extra spaces again
-        text = ' '.join(text.split())
+        text = " ".join(text.split())
 
         return text
 
@@ -49,7 +49,7 @@ class ContentNormalizer:
 
         ngrams = set()
         for i in range(len(words) - window_size + 1):
-            ngram = ' '.join(words[i:i + window_size])
+            ngram = " ".join(words[i : i + window_size])
             ngrams.add(ngram)
 
         return ngrams
@@ -134,7 +134,6 @@ class DedupliationTracker:
 
         # Not a duplicate, add it
         content_hash = ContentNormalizer.get_content_hash(content)
-        signature = ContentNormalizer.get_content_signature(content)
 
         self.exact_hashes.add(content_hash)
         self.content_signatures[content_hash] = content

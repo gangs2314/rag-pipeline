@@ -34,11 +34,16 @@ env/
 *~
 .DS_Store
 
+# Claude Code
+.claude/
+
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
 .tox/
+.ruff_cache/
+.mypy_cache/
 
 # Environment variables
 .env

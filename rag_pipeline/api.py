@@ -285,8 +285,7 @@ async def upload_document(file: UploadFile = File(...)):
             status_code = 429
             metrics.record_request("/upload", time.time() - start, status_code)
             raise HTTPException(
-                status_code=429,
-                detail="Rate limit exceeded. Maximum 100 requests per minute."
+                status_code=429, detail="Rate limit exceeded. Maximum 100 requests per minute."
             )
 
         if not file.filename:
@@ -297,8 +296,20 @@ async def upload_document(file: UploadFile = File(...)):
         file_ext = Path(file.filename).suffix.lower()
 
         supported_extensions = {
-            ".pdf", ".txt", ".md", ".markdown", ".docx", ".html", ".json",
-            ".py", ".js", ".ts", ".java", ".cpp", ".go", ".rs"
+            ".pdf",
+            ".txt",
+            ".md",
+            ".markdown",
+            ".docx",
+            ".html",
+            ".json",
+            ".py",
+            ".js",
+            ".ts",
+            ".java",
+            ".cpp",
+            ".go",
+            ".rs",
         }
 
         if file_ext not in supported_extensions:
@@ -308,7 +319,7 @@ async def upload_document(file: UploadFile = File(...)):
                 detail=(
                     f"Unsupported file type: {file_ext}. "
                     f"Supported: {', '.join(supported_extensions)}"
-                )
+                ),
             )
 
         # Check file size
@@ -319,8 +330,7 @@ async def upload_document(file: UploadFile = File(...)):
         if file_size_mb > settings.max_file_size_mb:
             status_code = 413
             raise HTTPException(
-                status_code=413,
-                detail=f"File size exceeds {settings.max_file_size_mb}MB limit"
+                status_code=413, detail=f"File size exceeds {settings.max_file_size_mb}MB limit"
             )
 
         # Save file temporarily
@@ -342,7 +352,7 @@ async def upload_document(file: UploadFile = File(...)):
                     file_name=file.filename,
                     chunk_count=0,
                     status="error",
-                    error=result.get("error", "Ingestion failed")
+                    error=result.get("error", "Ingestion failed"),
                 )
 
             metrics.record_upload(len(content))
@@ -361,7 +371,7 @@ async def upload_document(file: UploadFile = File(...)):
                 file_name=file.filename,
                 chunk_count=0,
                 status="error",
-                error=f"Upload failed: {error_msg}"
+                error=f"Upload failed: {error_msg}",
             )
         finally:
             # Clean up temporary file
@@ -404,8 +414,7 @@ async def query_documents(request: QueryRequest):
             status_code = 429
             metrics.record_request("/query", time.time() - start, status_code)
             raise HTTPException(
-                status_code=429,
-                detail="Rate limit exceeded. Maximum 100 requests per minute."
+                status_code=429, detail="Rate limit exceeded. Maximum 100 requests per minute."
             )
 
         if not request.query or len(request.query.strip()) == 0:
@@ -419,7 +428,7 @@ async def query_documents(request: QueryRequest):
             status_code = 400
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid search mode '{mode}'. Must be one of: {', '.join(valid_modes)}"
+                detail=f"Invalid search mode '{mode}'. Must be one of: {', '.join(valid_modes)}",
             )
 
         try:
@@ -471,8 +480,7 @@ async def answer_question(request: AnswerRequest):
             status_code = 429
             metrics.record_request("/answer", time.time() - start, status_code)
             raise HTTPException(
-                status_code=429,
-                detail="Rate limit exceeded. Maximum 100 requests per minute."
+                status_code=429, detail="Rate limit exceeded. Maximum 100 requests per minute."
             )
 
         if not request.query or len(request.query.strip()) == 0:
@@ -482,25 +490,24 @@ async def answer_question(request: AnswerRequest):
         try:
             # Retrieve relevant chunks
             pipeline = get_pipeline()
-            retrieval_result = pipeline.query(
-                request.query, request.top_k, mode="semantic"
-            )
+            retrieval_result = pipeline.query(request.query, request.top_k, mode="semantic")
 
             if retrieval_result["status"] == "error":
                 status_code = 500
                 raise HTTPException(
-                    status_code=500,
-                    detail=retrieval_result.get("error", "Retrieval failed")
+                    status_code=500, detail=retrieval_result.get("error", "Retrieval failed")
                 )
 
             # Convert retrieval results to chunk format for generation
             chunks = []
             for result in retrieval_result.get("results", []):
-                chunks.append({
-                    "content": result.get("content", ""),
-                    "metadata": result.get("metadata", {}),
-                    "score": result.get("similarity_score", 0.0),
-                })
+                chunks.append(
+                    {
+                        "content": result.get("content", ""),
+                        "metadata": result.get("metadata", {}),
+                        "score": result.get("similarity_score", 0.0),
+                    }
+                )
 
             # Generate answer
             llm_provider = settings.llm_provider or "fake"
@@ -595,11 +602,7 @@ async def clear_all_chunks():
     try:
         pipeline = get_pipeline()
         result = pipeline.vector_store.clear_all()
-        return {
-            "status": "success",
-            "message": "All chunks cleared successfully",
-            "result": result
-        }
+        return {"status": "success", "message": "All chunks cleared successfully", "result": result}
     except Exception as e:
         status_code = 500
         raise HTTPException(status_code=500, detail=f"Failed to clear chunks: {str(e)}")

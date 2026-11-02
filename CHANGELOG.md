@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 - Citation extraction from LLM output with source mapping
 - Answer generation with confidence scoring and abstention
 - FakeLLMClient for deterministic testing
-- 30 comprehensive unit tests
+- 30 unit tests
 
 #### Answer Endpoint (Task 2)
 - POST /answer endpoint for LLM-powered question answering
@@ -29,7 +29,7 @@ All notable changes to this project will be documented in this file.
 - BM25Index for keyword-based search
 - Reciprocal Rank Fusion (RRF) combining dense + sparse results
 - Weighted fusion for fine-grained control
-- 17 comprehensive tests for fusion algorithms
+- 17 tests for fusion algorithms
 
 #### Query Enhancements (Task 5)
 - Optional reranking parameter to /query (backward-compatible)

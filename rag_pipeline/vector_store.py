@@ -1,8 +1,8 @@
 """Vector store abstraction layer supporting ChromaDB and Qdrant."""
 
+import hashlib
 from abc import ABC, abstractmethod
 from typing import Optional
-import hashlib
 
 try:
     from langchain.schema import Document
@@ -97,7 +97,7 @@ class BaseVectorStore(ABC):
 
         for doc in documents:
             # Normalize content: strip whitespace, convert to lowercase for comparison
-            normalized = ' '.join(doc.page_content.split()).lower()
+            normalized = " ".join(doc.page_content.split()).lower()
             content_hash = hashlib.sha256(normalized.encode()).hexdigest()
             if content_hash not in seen_hashes:
                 seen_hashes.add(content_hash)
@@ -116,9 +116,8 @@ class ChromaDBVectorStore(BaseVectorStore):
         super().__init__(embedding_model, collection_name)
         try:
             import chromadb
-            self.chroma_client = chromadb.PersistentClient(
-                path=str(settings.chromadb_path)
-            )
+
+            self.chroma_client = chromadb.PersistentClient(path=str(settings.chromadb_path))
             self.collection = self.chroma_client.get_or_create_collection(
                 name=collection_name,
                 metadata={"hnsw:space": "cosine"},
@@ -136,7 +135,7 @@ class ChromaDBVectorStore(BaseVectorStore):
 
         for doc in documents:
             content = doc.page_content
-            if dedup_tracker.add_content(content, doc.metadata.get('unique_chunk_id', '')):
+            if dedup_tracker.add_content(content, doc.metadata.get("unique_chunk_id", "")):
                 unique_docs.append(doc)
             else:
                 duplicate_count += 1
@@ -156,12 +155,14 @@ class ChromaDBVectorStore(BaseVectorStore):
 
         # Track what's already in the collection to avoid re-inserting
         existing_data = self.collection.get()
-        existing_ids = set(existing_data["ids"]) if existing_data and existing_data.get("ids") else set()
+        existing_ids = (
+            set(existing_data["ids"]) if existing_data and existing_data.get("ids") else set()
+        )
         skipped_count = 0
 
         for doc in unique_docs:
             # Use unique_chunk_id if available
-            doc_id = doc.metadata.get('unique_chunk_id')
+            doc_id = doc.metadata.get("unique_chunk_id")
             if not doc_id:
                 doc_id = f"{doc.metadata.get('source_file', 'unknown')}_{doc.metadata.get('chunk_index', 0)}"
 
@@ -283,11 +284,13 @@ class ChromaDBVectorStore(BaseVectorStore):
         # Convert to hybrid searcher format
         documents = []
         for i, doc_id in enumerate(all_docs_data["ids"]):
-            documents.append({
-                "id": doc_id,
-                "content": all_docs_data["documents"][i] if all_docs_data["documents"] else "",
-                "metadata": all_docs_data["metadatas"][i] if all_docs_data["metadatas"] else {},
-            })
+            documents.append(
+                {
+                    "id": doc_id,
+                    "content": all_docs_data["documents"][i] if all_docs_data["documents"] else "",
+                    "metadata": all_docs_data["metadatas"][i] if all_docs_data["metadatas"] else {},
+                }
+            )
 
         try:
             searcher = HybridSearcher(self.embedding_model, documents)
@@ -304,8 +307,12 @@ class ChromaDBVectorStore(BaseVectorStore):
                 doc_index = all_docs_data["ids"].index(doc_id)
                 result = VectorStoreResult(
                     document_id=doc_id,
-                    content=all_docs_data["documents"][doc_index] if all_docs_data["documents"] else "",
-                    metadata=all_docs_data["metadatas"][doc_index] if all_docs_data["metadatas"] else {},
+                    content=all_docs_data["documents"][doc_index]
+                    if all_docs_data["documents"]
+                    else "",
+                    metadata=all_docs_data["metadatas"][doc_index]
+                    if all_docs_data["metadatas"]
+                    else {},
                     similarity_score=score,
                 )
                 search_results.append(result)
@@ -454,13 +461,16 @@ class QdrantVectorStore(BaseVectorStore):
                 # Convert to hybrid searcher format
                 documents = []
                 for point in all_docs[0]:
-                    documents.append({
-                        "id": str(point.id),
-                        "content": point.payload.get("content", ""),
-                        "metadata": point.payload.get("metadata", {}),
-                    })
+                    documents.append(
+                        {
+                            "id": str(point.id),
+                            "content": point.payload.get("content", ""),
+                            "metadata": point.payload.get("metadata", {}),
+                        }
+                    )
 
                 from rag_pipeline.hybrid_search import HybridSearcher
+
                 try:
                     searcher = HybridSearcher(self.embedding_model, documents)
                     hybrid_results = searcher.search(query, documents, top_k, mode="hybrid")
@@ -553,6 +563,7 @@ class QdrantVectorStore(BaseVectorStore):
             self.client.delete_collection(collection_name=self.collection_name)
             # Recreate empty collection
             from qdrant_client.models import Distance, VectorParams
+
             embedding_dim = len(self.embedding_model.encode("test"))
             self.client.recreate_collection(
                 collection_name=self.collection_name,

@@ -80,9 +80,7 @@ class CrossEncoderReranker:
 
         # Sort by relevance score (descending) and return top-k
         sorted_candidates = sorted(
-            scored_candidates,
-            key=lambda x: x.get("relevance_score", 0),
-            reverse=True
+            scored_candidates, key=lambda x: x.get("relevance_score", 0), reverse=True
         )
         return sorted_candidates[:top_k]
 

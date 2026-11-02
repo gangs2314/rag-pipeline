@@ -1,7 +1,6 @@
 """Tests for observability layer."""
 
 
-
 from rag_pipeline.observability.logging import RequestLogger, get_logger
 
 

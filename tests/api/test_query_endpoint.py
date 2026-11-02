@@ -57,5 +57,3 @@ def test_query_backwards_compatible():
     )
 
     assert response.status_code == 200
-
-

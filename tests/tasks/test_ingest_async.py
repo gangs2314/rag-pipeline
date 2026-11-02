@@ -10,7 +10,7 @@ def test_job_db_init():
     """Test IngestJobDB initialization."""
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "test.db"
-        db = IngestJobDB(db_path)
+        IngestJobDB(db_path)
         assert db_path.exists()
 
 

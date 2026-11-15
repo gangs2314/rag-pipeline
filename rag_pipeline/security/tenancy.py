@@ -1,6 +1,6 @@
 """Tenant context and isolation utilities."""
 
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from typing import Optional
 
 from rag_pipeline.security.auth import TenantContext
@@ -11,13 +11,18 @@ _tenant_context: ContextVar[Optional[TenantContext]] = ContextVar(
 )
 
 
-def set_tenant_context(context: TenantContext) -> None:
+def set_tenant_context(context: TenantContext) -> Token:
     """Set tenant context for current request.
 
     Args:
         context: TenantContext to set.
     """
-    _tenant_context.set(context)
+    return _tenant_context.set(context)
+
+
+def reset_tenant_context(token: Token) -> None:
+    """Restore the previous tenant after a request, preventing context leakage."""
+    _tenant_context.reset(token)
 
 
 def get_tenant_context() -> Optional[TenantContext]:

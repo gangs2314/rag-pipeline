@@ -2,8 +2,8 @@
 
 import hashlib
 from abc import ABC, abstractmethod
-from typing import Optional
 from datetime import datetime
+from typing import Optional
 
 try:
     from langchain.schema import Document
@@ -12,13 +12,13 @@ except ImportError:
 
 try:
     from langchain_text_splitters import (
-        RecursiveCharacterTextSplitter,
         MarkdownHeaderTextSplitter,
+        RecursiveCharacterTextSplitter,
     )
 except ImportError:
     from langchain.text_splitter import (
-        RecursiveCharacterTextSplitter,
         MarkdownHeaderTextSplitter,
+        RecursiveCharacterTextSplitter,
     )
 
 

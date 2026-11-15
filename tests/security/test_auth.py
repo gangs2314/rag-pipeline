@@ -3,6 +3,7 @@
 from fastapi.testclient import TestClient
 
 from rag_pipeline.api import app
+from rag_pipeline.config import settings
 from rag_pipeline.security import TenantContext
 
 
@@ -90,3 +91,25 @@ def test_docs_endpoint_public():
 
     response = client.get("/docs")
     assert response.status_code == 200
+
+
+def test_sensitive_routes_enforce_api_keys_when_configured(monkeypatch):
+    monkeypatch.setattr(settings, "api_keys", "test-key:tenant-a")
+    client = TestClient(app)
+
+    assert client.get("/health").status_code == 200
+    assert client.post("/query", json={"query": "private data"}).status_code == 401
+    assert client.post(
+        "/query",
+        json={"query": "private data"},
+        headers={"X-API-Key": "wrong-key"},
+    ).status_code == 401
+
+
+def test_malformed_api_key_configuration_fails_closed(monkeypatch):
+    monkeypatch.setattr(settings, "api_keys", "malformed")
+    client = TestClient(app)
+
+    response = client.post("/query", json={"query": "private data"})
+
+    assert response.status_code == 503

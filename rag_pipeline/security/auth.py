@@ -32,15 +32,21 @@ def parse_api_keys() -> dict[str, str]:
     """
     api_keys_str = settings.api_keys or os.getenv("API_KEYS", "")
 
-    if not api_keys_str:
+    if not api_keys_str or not api_keys_str.strip():
         # Auth disabled - all requests go to "public" tenant
         return {}
 
     mapping = {}
     for pair in api_keys_str.split(","):
-        if ":" in pair:
-            key, tenant = pair.strip().split(":", 1)
-            mapping[key.strip()] = tenant.strip()
+        if ":" not in pair:
+            raise ValueError("API_KEYS entries must use KEY:TENANT format")
+        key, tenant = pair.strip().split(":", 1)
+        key, tenant = key.strip(), tenant.strip()
+        if not key or not tenant:
+            raise ValueError("API_KEYS entries must include both a key and tenant")
+        if key in mapping:
+            raise ValueError("API_KEYS contains a duplicate key")
+        mapping[key] = tenant
 
     return mapping
 
@@ -59,7 +65,13 @@ async def require_api_key(
     Raises:
         HTTPException: If API key is invalid or missing (when auth enabled).
     """
-    api_key_mapping = parse_api_keys()
+    try:
+        api_key_mapping = parse_api_keys()
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="API key configuration is invalid",
+        ) from exc
 
     # If no keys configured, auth is disabled
     if not api_key_mapping:

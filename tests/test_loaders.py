@@ -1,21 +1,17 @@
 """Comprehensive tests for document loaders."""
 
-import pytest
 import json
 import tempfile
 from pathlib import Path
 
-from rag_pipeline.loaders import (
-    DocumentLoaderFactory,
-    TextDocumentLoader,
-    JSONDocumentLoader,
-    CodeDocumentLoader,
-)
+import pytest
 
-try:
-    from langchain.schema import Document
-except ImportError:
-    from langchain_core.documents import Document
+from rag_pipeline.loaders import (
+    CodeDocumentLoader,
+    DocumentLoaderFactory,
+    JSONDocumentLoader,
+    TextDocumentLoader,
+)
 
 
 class TestTextDocumentLoader:
@@ -69,7 +65,9 @@ class TestTextDocumentLoader:
 
     def test_load_unicode_content(self):
         """Test loading file with unicode characters."""
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8") as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".txt", delete=False, encoding="utf-8"
+        ) as f:
             f.write("Hello 世界 🌍 Привет")
             temp_path = f.name
 

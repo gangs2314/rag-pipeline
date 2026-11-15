@@ -1,19 +1,23 @@
 """FastAPI REST API for RAG pipeline."""
 
 import time
+import uuid
 from collections import defaultdict
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from rag_pipeline.config import settings
 from rag_pipeline.generation import generate_answer, get_llm_client
 from rag_pipeline.pipeline import get_pipeline
+from rag_pipeline.security.auth import TenantContext, require_api_key
+from rag_pipeline.security.tenancy import reset_tenant_context, set_tenant_context
 
 
 # Pydantic models for request/response
@@ -21,7 +25,7 @@ class QueryRequest(BaseModel):
     """Query request model."""
 
     query: str
-    top_k: Optional[int] = None
+    top_k: Optional[int] = Field(default=None, ge=1, le=100)
     mode: Optional[str] = "semantic"  # 'semantic', 'keyword', or 'hybrid'
     rerank: bool = False  # Apply cross-encoder reranking
 
@@ -33,21 +37,20 @@ class QueryResponse(BaseModel):
     result_count: int
     results: list[dict]
     status: str
+    mode: str = "semantic"
+    reranked: bool = False
 
 
 class AnswerRequest(BaseModel):
     """Answer request model."""
 
     query: str
-    top_k: int = 5
-
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "query": "What is machine learning?",
-                "top_k": 5,
-            }
+    top_k: int = Field(default=5, ge=1, le=100)
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {"query": "What is machine learning?", "top_k": 5}
         }
+    )
 
 
 class CitationModel(BaseModel):
@@ -64,13 +67,13 @@ class AnswerResponse(BaseModel):
 
     query: str
     answer: str
-    citations: list[CitationModel] = []
+    citations: list[CitationModel] = Field(default_factory=list)
     confidence: float
     abstained: bool
     status: str
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "query": "What is machine learning?",
                 "answer": "Machine learning is a subset of AI [chunk_1].",
@@ -87,6 +90,7 @@ class AnswerResponse(BaseModel):
                 "status": "success",
             }
         }
+    )
 
 
 class DocumentIngestionResponse(BaseModel):
@@ -105,6 +109,23 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     vector_store: str
+
+
+async def request_tenant(
+    context: TenantContext = Depends(require_api_key),
+):
+    """Authenticate the request and scope tenant state for its full lifecycle."""
+    token = set_tenant_context(context)
+    try:
+        yield context
+    finally:
+        reset_tenant_context(token)
+
+
+def _rate_limit_key(request: Request, tenant: TenantContext, endpoint: str) -> str:
+    client_host = request.client.host if request.client else "unknown"
+    identity = tenant.tenant_id if tenant.tenant_id != "public" else client_host
+    return f"{endpoint}:{identity}"
 
 
 # Prometheus metrics
@@ -221,29 +242,32 @@ ALLOWED_MIME_TYPES = {
 metrics = PrometheusMetrics()
 rate_limiter = RateLimiter(requests_per_minute=100)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize the shared pipeline for the lifetime of the API process."""
+    pipeline = get_pipeline()
+    stats = pipeline.get_stats()
+    print(f"RAG Pipeline initialized. Stats: {stats}")
+    yield
+
+
 # Create FastAPI app
 app = FastAPI(
     title="RAG Pipeline API",
     description="Production-grade Retrieval-Augmented Generation pipeline",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("startup")
-async def startup():
-    """Initialize pipeline on startup."""
-    pipeline = get_pipeline()
-    stats = pipeline.get_stats()
-    print(f"RAG Pipeline initialized. Stats: {stats}")
 
 
 @app.get("/health", response_model=HealthResponse)
@@ -264,7 +288,11 @@ async def health_check():
 
 
 @app.post("/upload", response_model=DocumentIngestionResponse)
-async def upload_document(file: UploadFile = File(...)):
+async def upload_document(
+    http_request: Request,
+    file: UploadFile = File(...),
+    tenant: TenantContext = Depends(request_tenant),
+):
     """
     Upload and ingest a document.
 
@@ -281,7 +309,7 @@ async def upload_document(file: UploadFile = File(...)):
 
     try:
         # Rate limiting
-        if not rate_limiter.is_allowed("upload"):
+        if not rate_limiter.is_allowed(_rate_limit_key(http_request, tenant, "upload")):
             status_code = 429
             metrics.record_request("/upload", time.time() - start, status_code)
             raise HTTPException(
@@ -293,8 +321,10 @@ async def upload_document(file: UploadFile = File(...)):
             status_code = 400
             raise HTTPException(status_code=400, detail="No filename provided")
 
-        # MIME type validation
-        file_ext = Path(file.filename).suffix.lower()
+        # Never use the client filename as a filesystem path. Keep only its
+        # basename for display and derive the extension for parser selection.
+        display_name = file.filename.replace("\\", "/").rsplit("/", 1)[-1]
+        file_ext = Path(display_name).suffix.lower()
 
         supported_extensions = {
             ".pdf", ".txt", ".md", ".markdown", ".docx", ".html", ".json",
@@ -311,46 +341,47 @@ async def upload_document(file: UploadFile = File(...)):
                 )
             )
 
-        # Check file size
-        file_size_mb = 0
-        content = await file.read()
-        file_size_mb = len(content) / (1024 * 1024)
-
-        if file_size_mb > settings.max_file_size_mb:
-            status_code = 413
-            raise HTTPException(
-                status_code=413,
-                detail=f"File size exceeds {settings.max_file_size_mb}MB limit"
-            )
-
-        # Save file temporarily
+        # Stream to a server-generated path and enforce the size limit as bytes
+        # arrive, so a client cannot choose the path or force a full-memory read.
         settings.upload_dir.mkdir(parents=True, exist_ok=True)
-        file_path = settings.upload_dir / file.filename
+        file_path = settings.upload_dir / f"upload_{uuid.uuid4().hex}{file_ext}"
+        uploaded_bytes = 0
 
         try:
-            with open(file_path, "wb") as f:
-                f.write(content)
+            with file_path.open("xb") as destination:
+                while chunk := await file.read(1024 * 1024):
+                    uploaded_bytes += len(chunk)
+                    if uploaded_bytes > settings.max_file_size_mb * 1024 * 1024:
+                        status_code = 413
+                        raise HTTPException(
+                            status_code=413,
+                            detail=f"File size exceeds {settings.max_file_size_mb}MB limit",
+                        )
+                    destination.write(chunk)
 
             # Ingest document
             pipeline = get_pipeline()
-            result = pipeline.ingest_document(file_path)
+            result = pipeline.ingest_document(
+                file_path,
+                tenant_id=tenant.tenant_id,
+                source_name=display_name,
+            )
 
             if result["status"] == "error":
                 status_code = 400
                 return DocumentIngestionResponse(
                     document_id="",
-                    file_name=file.filename,
+                    file_name=display_name,
                     chunk_count=0,
                     status="error",
                     error=result.get("error", "Ingestion failed")
                 )
 
-            metrics.record_upload(len(content))
+            metrics.record_upload(uploaded_bytes)
             status_code = 200
+            result["file_name"] = display_name
             return DocumentIngestionResponse(**result)
 
-        except DocumentIngestionResponse:
-            raise
         except HTTPException:
             raise
         except Exception as e:
@@ -358,18 +389,17 @@ async def upload_document(file: UploadFile = File(...)):
             error_msg = str(e)
             return DocumentIngestionResponse(
                 document_id="",
-                file_name=file.filename,
+                file_name=display_name,
                 chunk_count=0,
                 status="error",
                 error=f"Upload failed: {error_msg}"
             )
         finally:
             # Clean up temporary file
-            if file_path.exists():
-                try:
-                    file_path.unlink()
-                except OSError:
-                    pass
+            try:
+                file_path.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     except HTTPException:
         metrics.record_request("/upload", time.time() - start, status_code)
@@ -381,26 +411,33 @@ async def upload_document(file: UploadFile = File(...)):
 
 
 @app.post("/query", response_model=QueryResponse)
-async def query_documents(request: QueryRequest):
+async def query_documents(
+    request: QueryRequest,
+    http_request: Request,
+    tenant: TenantContext = Depends(request_tenant),
+):
     """
     Query documents for relevant chunks with support for multiple search modes.
 
     Search modes:
     - semantic: Dense vector similarity only
     - keyword: BM25 keyword search only
-    - hybrid: Combines semantic + keyword with reciprocal rank fusion + cross-encoder reranking
+    - hybrid: Combines semantic + BM25 results with reciprocal rank fusion
+
+    Set rerank=true to rescore an expanded candidate pool with the cross-encoder
+    and use MMR to reduce redundant results.
 
     Returns top-K most relevant chunks with:
     - Chunk content (text)
     - Metadata (source file, page number, section headers, etc.)
-    - Similarity score (0-1)
+- Ranking score (semantic similarity, normalized BM25, or RRF depending on mode)
     """
     start = time.time()
     status_code = 200
 
     try:
         # Rate limiting
-        if not rate_limiter.is_allowed("query"):
+        if not rate_limiter.is_allowed(_rate_limit_key(http_request, tenant, "query")):
             status_code = 429
             metrics.record_request("/query", time.time() - start, status_code)
             raise HTTPException(
@@ -429,6 +466,7 @@ async def query_documents(request: QueryRequest):
                 request.top_k,
                 mode=mode,
                 rerank=request.rerank,
+                tenant_id=tenant.tenant_id,
             )
 
             if result["status"] == "error":
@@ -450,7 +488,11 @@ async def query_documents(request: QueryRequest):
 
 
 @app.post("/answer", response_model=AnswerResponse)
-async def answer_question(request: AnswerRequest):
+async def answer_question(
+    request: AnswerRequest,
+    http_request: Request,
+    tenant: TenantContext = Depends(request_tenant),
+):
     """
     Generate an answer to a query using retrieved documents.
 
@@ -467,7 +509,7 @@ async def answer_question(request: AnswerRequest):
 
     try:
         # Rate limiting
-        if not rate_limiter.is_allowed("answer"):
+        if not rate_limiter.is_allowed(_rate_limit_key(http_request, tenant, "answer")):
             status_code = 429
             metrics.record_request("/answer", time.time() - start, status_code)
             raise HTTPException(
@@ -483,7 +525,7 @@ async def answer_question(request: AnswerRequest):
             # Retrieve relevant chunks
             pipeline = get_pipeline()
             retrieval_result = pipeline.query(
-                request.query, request.top_k, mode="semantic"
+                request.query, request.top_k, mode="semantic", tenant_id=tenant.tenant_id
             )
 
             if retrieval_result["status"] == "error":
@@ -547,12 +589,12 @@ async def answer_question(request: AnswerRequest):
 
 
 @app.get("/stats")
-async def get_stats():
+async def get_stats(tenant: TenantContext = Depends(request_tenant)):
     """Get pipeline statistics."""
     start = time.time()
     try:
         pipeline = get_pipeline()
-        result = pipeline.get_stats()
+        result = pipeline.get_stats(tenant_id=tenant.tenant_id)
         metrics.record_request("/stats", time.time() - start, 200)
         return result
     except Exception as e:
@@ -561,23 +603,29 @@ async def get_stats():
 
 
 @app.delete("/documents/{document_id}")
-async def delete_document(document_id: str):
+async def delete_document(
+    document_id: str,
+    tenant: TenantContext = Depends(request_tenant),
+):
     """Delete a document and its chunks."""
     start = time.time()
     status_code = 200
 
     try:
         pipeline = get_pipeline()
-        result = pipeline.delete_document(document_id)
+        result = pipeline.delete_document(document_id, tenant_id=tenant.tenant_id)
 
+        if result["status"] == "not_found":
+            status_code = 404
+            raise HTTPException(status_code=404, detail="Document not found")
         if result["status"] == "error":
             status_code = 500
             raise HTTPException(status_code=500, detail=result.get("error", "Deletion failed"))
 
         return result
 
-    except HTTPException:
-        status_code = 500
+    except HTTPException as exc:
+        status_code = exc.status_code
         raise
     except Exception as e:
         status_code = 500
@@ -587,14 +635,14 @@ async def delete_document(document_id: str):
 
 
 @app.post("/clear-all")
-async def clear_all_chunks():
-    """Clear all documents and chunks from the vector store."""
+async def clear_all_chunks(tenant: TenantContext = Depends(request_tenant)):
+    """Clear only the authenticated tenant's documents and chunks."""
     start = time.time()
     status_code = 200
 
     try:
         pipeline = get_pipeline()
-        result = pipeline.vector_store.clear_all()
+        result = pipeline.clear_tenant(tenant_id=tenant.tenant_id)
         return {
             "status": "success",
             "message": "All chunks cleared successfully",
@@ -608,7 +656,7 @@ async def clear_all_chunks():
 
 
 @app.get("/metrics")
-async def get_metrics():
+async def get_metrics(tenant: TenantContext = Depends(request_tenant)):
     """Get Prometheus-format metrics."""
     return PlainTextResponse(metrics.get_metrics())
 
@@ -623,8 +671,10 @@ async def root():
         "endpoints": {
             "POST /upload": "Upload and ingest a document",
             "POST /query": "Query for relevant chunks",
+            "POST /answer": "Generate an answer with validated source citations",
             "GET /stats": "Get pipeline statistics",
             "DELETE /documents/{document_id}": "Delete a document",
+            "POST /clear-all": "Clear this tenant's documents",
             "GET /health": "Health check",
             "GET /metrics": "Prometheus metrics",
         },

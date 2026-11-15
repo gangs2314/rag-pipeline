@@ -26,11 +26,11 @@
 - [x] Error handling (no info leakage)
 
 ## Observability ✅
-- [x] Structured JSON logging
-- [x] OpenTelemetry tracing integration
-- [x] Request tracking with query IDs
-- [x] Operation latency metrics
-- [x] Error tracking with context
+- [ ] Structured JSON logging is implemented as a utility but is not wired into API requests
+- [ ] OpenTelemetry tracing utility is not initialized by the API
+- [ ] Request IDs are not threaded through the API pipeline
+- [x] Basic in-memory operation metrics
+- [ ] Structured error tracking with request context
 
 ## Data Quality ✅
 - [x] Deduplication (SHA256 + n-gram)
@@ -49,7 +49,7 @@
 - [x] Vector similarity search
 - [x] BM25 keyword indexing
 - [x] Batch embedding
-- [x] Async operations support
+- [ ] Async ingestion helpers exist; no async ingestion API route is registered
 - [x] Connection pooling (vector store)
 
 ## Deployment ✅
@@ -57,7 +57,7 @@
 - [x] Environment configuration
 - [x] Health checks
 - [x] Graceful shutdown
-- [x] Dependency pinning
+- [ ] Most runtime dependencies use open-ended minimum versions
 
 ## Documentation ✅
 - [x] README with features
@@ -89,4 +89,6 @@
 4. 2GB RAM minimum, 4GB recommended
 5. 10GB disk space for models + data
 
-## Go-Live Readiness: ✅ READY
+## Go-Live Readiness: Not verified
+
+This checklist documents implemented pieces, not a deployment certification. Validate the configured vector store, LLM credentials, isolation policy, and retrieval metrics in the target environment before deployment.

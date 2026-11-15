@@ -3,11 +3,17 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     """Application settings with environment variable override support."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
 
     # Server
     host: str = "0.0.0.0"
@@ -40,6 +46,8 @@ class Settings(BaseSettings):
     # Retrieval
     top_k: int = 5
     min_similarity_score: float = 0.0
+    rerank_candidate_k: int = 30
+    rerank_relevance_weight: float = 0.75
 
     # Generation (LLM)
     llm_provider: str = "fake"  # "gemini" or "fake"
@@ -54,12 +62,6 @@ class Settings(BaseSettings):
 
     # Kaggle
     kaggle_datasets_dir: Path = Path("./data/kaggle_datasets")
-
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
-
 
 settings = Settings()
 

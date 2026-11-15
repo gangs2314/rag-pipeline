@@ -1,9 +1,10 @@
 """Advanced deduplication system using multiple strategies."""
 
 import hashlib
-from typing import Set, Tuple
-from collections import defaultdict
 import re
+import unicodedata
+from collections import defaultdict
+from typing import Iterable, Set, Tuple
 
 
 class ContentNormalizer:
@@ -18,8 +19,9 @@ class ContentNormalizer:
         - Removing punctuation variations
         - Stripping special characters
         """
-        # Convert to lowercase
-        text = text.lower()
+        # Normalize Unicode before case-folding so visually identical text hashes
+        # consistently across different source encodings.
+        text = unicodedata.normalize("NFKC", text).casefold()
 
         # Remove extra whitespace
         text = ' '.join(text.split())
@@ -88,7 +90,9 @@ class DedupliationTracker:
         self.exact_hashes: Set[str] = set()
 
         # Store content signatures for similarity detection
-        self.content_signatures: dict = {}  # hash -> signature
+        self.content_signatures: dict[str, str] = {}  # hash -> original content
+        self.hash_signatures: dict[str, Set[str]] = {}
+        self.signature_to_hashes: defaultdict = defaultdict(set)
 
         # Store chunk IDs for each hash (for tracking)
         self.hash_to_ids: defaultdict = defaultdict(list)
@@ -105,10 +109,21 @@ class DedupliationTracker:
         Returns:
             Tuple of (is_duplicate, max_similarity_score)
         """
-        max_similarity = 0.0
+        signature = ContentNormalizer.get_content_signature(content)
+        if not signature:
+            return False, 0.0
 
-        for existing_content in self.content_signatures.values():
-            similarity = ContentNormalizer.similarity_score(content, existing_content)
+        # Inverted set lookup compares only candidates sharing at least one n-gram,
+        # avoiding a full scan over all ingested chunks for ordinary content.
+        candidate_hashes: set[str] = set()
+        for ngram in signature:
+            candidate_hashes.update(self.signature_to_hashes.get(ngram, ()))
+
+        max_similarity = 0.0
+        for content_hash in candidate_hashes:
+            existing_signature = self.hash_signatures.get(content_hash, set())
+            union = len(signature | existing_signature)
+            similarity = len(signature & existing_signature) / union if union else 0.0
             max_similarity = max(max_similarity, similarity)
 
             if similarity >= self.similarity_threshold:
@@ -138,6 +153,9 @@ class DedupliationTracker:
 
         self.exact_hashes.add(content_hash)
         self.content_signatures[content_hash] = content
+        self.hash_signatures[content_hash] = signature
+        for ngram in signature:
+            self.signature_to_hashes[ngram].add(content_hash)
         self.hash_to_ids[content_hash].append(chunk_id)
 
         return True
@@ -146,6 +164,8 @@ class DedupliationTracker:
         """Clear all deduplication data."""
         self.exact_hashes.clear()
         self.content_signatures.clear()
+        self.hash_signatures.clear()
+        self.signature_to_hashes.clear()
         self.hash_to_ids.clear()
 
     def get_stats(self) -> dict:
@@ -154,6 +174,40 @@ class DedupliationTracker:
             "unique_hashes": len(self.exact_hashes),
             "total_chunk_ids": sum(len(ids) for ids in self.hash_to_ids.values()),
         }
+
+
+def deduplicate_documents(documents: Iterable) -> tuple[list, int]:
+    """Drop exact duplicate chunks with a set-backed, source-scoped check.
+
+    Identical chunks in the same document/location are redundant. Identical text
+    from different documents or tenants is retained so each source remains
+    citable and tenant boundaries are preserved.
+    """
+    seen: set[tuple[str, ...]] = set()
+    unique_documents = []
+    duplicate_count = 0
+
+    for document in documents:
+        metadata = document.metadata or {}
+        location = metadata.get("page_number") or metadata.get("section") or ""
+        scope = (
+            str(metadata.get("tenant_id", "public")),
+            str(metadata.get("document_id", metadata.get("source_file", ""))),
+            str(location),
+        )
+        content_hash = ContentNormalizer.get_content_hash(document.page_content)
+        key = (*scope, content_hash)
+        if key in seen:
+            duplicate_count += 1
+            continue
+        seen.add(key)
+        unique_documents.append(document)
+
+    return unique_documents, duplicate_count
+
+
+# Keep the original misspelled symbol importable for existing callers.
+DeduplicationTracker = DedupliationTracker
 
 
 # Global deduplication tracker instance

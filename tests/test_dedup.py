@@ -1,9 +1,11 @@
 """Comprehensive tests for deduplication module."""
 
-import pytest
+from types import SimpleNamespace
+
 from rag_pipeline.deduplication import (
     ContentNormalizer,
     DedupliationTracker,
+    deduplicate_documents,
     get_dedup_tracker,
 )
 
@@ -76,7 +78,6 @@ class TestContentNormalizer:
         """Test similarity score for identical texts."""
         text = "the quick brown fox"
         sig1 = ContentNormalizer.get_content_signature(text)
-        sig2 = ContentNormalizer.get_content_signature(text)
 
         if len(sig1) > 0:
             score = ContentNormalizer.similarity_score(text, text)
@@ -316,7 +317,33 @@ class TestDedupEdgeCases:
         content2 = "cafe"
 
         r1 = tracker.add_content(content1, "chunk1")
-        r2 = tracker.add_content(content2, "chunk2")
+        tracker.add_content(content2, "chunk2")
 
         # Should be treated as different after normalization
         assert r1 is True
+
+
+def test_set_deduplication_is_source_scoped():
+    documents = [
+        SimpleNamespace(
+            page_content="Hello, world!",
+            metadata={"tenant_id": "tenant-a", "document_id": "doc-1", "page_number": 1},
+        ),
+        SimpleNamespace(
+            page_content="hello world",
+            metadata={"tenant_id": "tenant-a", "document_id": "doc-1", "page_number": 1},
+        ),
+        SimpleNamespace(
+            page_content="hello world",
+            metadata={"tenant_id": "tenant-a", "document_id": "doc-2", "page_number": 1},
+        ),
+        SimpleNamespace(
+            page_content="hello world",
+            metadata={"tenant_id": "tenant-b", "document_id": "doc-1", "page_number": 1},
+        ),
+    ]
+
+    unique_documents, duplicate_count = deduplicate_documents(documents)
+
+    assert duplicate_count == 1
+    assert unique_documents == [documents[0], documents[2], documents[3]]

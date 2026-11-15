@@ -3,7 +3,7 @@
 ## 1. Hybrid Retrieval Strategy (RRF + Weighted Fusion)
 
 ### Decision
-Implemented dual-track retrieval: semantic (dense embeddings) + keyword (BM25), combined via Reciprocal Rank Fusion (RRF) with optional weighted fusion.
+Implemented dual-track retrieval: vector-store semantic candidates + a cached BM25 index, combined via Reciprocal Rank Fusion (RRF). The sparse index is rebuilt after writes and reused between queries.
 
 ### Rationale
 - **Semantic search alone**: High-quality results but misses exact keyword matches and struggles with domain-specific terminology
@@ -25,12 +25,12 @@ Implemented dual-track retrieval: semantic (dense embeddings) + keyword (BM25), 
 ## 2. Cross-Encoder Reranking (vs Bi-Encoder Similarity)
 
 ### Decision
-Use sentence-transformers CrossEncoder for post-retrieval reranking instead of relying on retriever scores.
+Use a cached sentence-transformers CrossEncoder to rescore an expanded candidate pool, then apply Maximal Marginal Relevance (MMR) to balance query relevance with semantic diversity.
 
 ### Rationale
 - **Bi-encoder (retriever score)**: Fast but trained for pairwise matching, not query-specific ranking
 - **Cross-encoder**: Direct query→document relevance scoring; empirically more accurate
-- **Trade-off**: +45ms latency for +5-8% Recall@5 improvement (acceptable for production)
+- **Trade-off**: Cross-encoder cost depends on candidate count and hardware; MMR embeds only the reranking candidate pool.
 - **Model choice**: BAAI/bge-reranker-base balances size (300MB) and accuracy
 
 ### Alternative Rejected
@@ -39,7 +39,7 @@ Use sentence-transformers CrossEncoder for post-retrieval reranking instead of r
 - LLM-based reranking: Cost prohibitive (Gemini API per-token billing)
 
 ### Validation
-- Tested on hybrid retrieval pipeline
+- Unit coverage checks MMR diversity and graceful fallback when the optional model is unavailable
 - Optional flag allows A/B testing (rerank=true/false)
 
 ---
@@ -91,7 +91,7 @@ Confidence = mean(similarity_score[0:3]); abstain if confidence < threshold (0.3
 ## 5. Tenant Isolation via Context Variables
 
 ### Decision
-Use contextvars (PEP 567) to thread tenant_id through request lifecycle; filter/tag chunks at ingestion and retrieval.
+Use contextvars (PEP 567) to thread tenant_id through request lifecycle; authenticate sensitive API routes and filter/tag chunks at ingestion, retrieval, statistics, and deletion.
 
 ### Rationale
 - **Thread-safety**: Context vars are async-aware, unlike thread-local storage
@@ -113,7 +113,7 @@ Use contextvars (PEP 567) to thread tenant_id through request lifecycle; filter/
 ## 6. Async Ingestion with SQLite Job DB
 
 ### Decision
-Implement /ingest/async endpoint that returns 202 with job_id; background task ingests file and tracks progress in SQLite.
+Keep SQLite-backed async ingestion helpers available for a future endpoint integration. The current API does not expose an `/ingest/async` route.
 
 ### Rationale
 - **202 Accepted**: Standard for async operations; client polls status without blocking

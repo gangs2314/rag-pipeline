@@ -1,14 +1,24 @@
 """Tests for hybrid search combining BM25 keyword search with dense vectors."""
 
+import re
+
 import pytest
+from sentence_transformers import SentenceTransformer
+
 from rag_pipeline.hybrid_search import BM25Search, CrossEncoderReranker, HybridSearcher
 
-try:
-    from langchain.schema import Document
-except ImportError:
-    from langchain_core.documents import Document
 
-from sentence_transformers import SentenceTransformer
+class FakeEmbeddingModel:
+    def encode(self, values):
+        def vector(text):
+            result = [0.0] * 64
+            for token in re.findall(r"\w+", text.casefold()):
+                result[hash(token) % len(result)] += 1.0
+            return result
+
+        if isinstance(values, list):
+            return [vector(value) for value in values]
+        return vector(values)
 
 
 class TestBM25Search:
@@ -82,38 +92,38 @@ class TestCrossEncoderReranker:
             {"id": "doc3", "content": "Natural language processing"},
         ]
 
-    def test_reranker_initialization(self):
+    class FakeModel:
+        def predict(self, pairs, **kwargs):
+            return [float(len(pair[1])) for pair in pairs]
+
+    def test_reranker_initialization(self, monkeypatch):
         """Test reranker initialization."""
-        try:
-            reranker = CrossEncoderReranker()
-            assert reranker.model is not None
-        except Exception as e:
-            pytest.skip(f"Cross-encoder not available: {e}")
+        import sentence_transformers
 
-    def test_reranker_rerank(self, documents):
+        monkeypatch.setattr(sentence_transformers, "CrossEncoder", lambda model: self.FakeModel())
+        reranker = CrossEncoderReranker()
+        assert isinstance(reranker.model, self.FakeModel)
+
+    def test_reranker_rerank(self, documents, monkeypatch):
         """Test reranking functionality."""
-        try:
-            reranker = CrossEncoderReranker()
-            query = "machine learning"
-            results = reranker.rerank(query, documents, top_k=3)
+        import sentence_transformers
 
-            assert len(results) <= 3
-            # Results should be (doc_id, score) tuples
-            for doc_id, score in results:
-                assert doc_id in [d["id"] for d in documents]
-                assert 0 <= score <= 1
+        monkeypatch.setattr(sentence_transformers, "CrossEncoder", lambda model: self.FakeModel())
+        reranker = CrossEncoderReranker()
+        results = reranker.rerank("machine learning", documents, top_k=2)
 
-        except Exception as e:
-            pytest.skip(f"Cross-encoder not available: {e}")
+        assert len(results) == 2
+        assert results[0][0] == "doc2"
+        assert results[0][1] >= results[1][1]
 
-    def test_reranker_empty_documents(self):
+    def test_reranker_empty_documents(self, monkeypatch):
         """Test reranker with empty document list."""
-        try:
-            reranker = CrossEncoderReranker()
-            results = reranker.rerank("query", [], top_k=5)
-            assert len(results) == 0
-        except Exception as e:
-            pytest.skip(f"Cross-encoder not available: {e}")
+        import sentence_transformers
+
+        monkeypatch.setattr(sentence_transformers, "CrossEncoder", lambda model: self.FakeModel())
+        reranker = CrossEncoderReranker()
+        results = reranker.rerank("query", [], top_k=5)
+        assert results == []
 
 
 class TestHybridSearcher:
@@ -121,8 +131,8 @@ class TestHybridSearcher:
 
     @pytest.fixture
     def embedding_model(self):
-        """Load embedding model."""
-        return SentenceTransformer("all-MiniLM-L6-v2")
+        """Return a deterministic local model for fast unit tests."""
+        return FakeEmbeddingModel()
 
     @pytest.fixture
     def documents(self):
@@ -171,7 +181,7 @@ class TestHybridSearcher:
         assert len(results) <= 3
         for doc_id, score in results:
             assert doc_id in [d["id"] for d in documents]
-            # Cross-encoder scores are unbounded (can be negative or > 1)
+            assert score > 0
 
     def test_invalid_search_mode(self, searcher, documents):
         """Test invalid search mode raises error."""
@@ -244,6 +254,7 @@ class TestHybridSearcher:
 class TestHybridSearchIntegration:
     """Integration tests for hybrid search."""
 
+    @pytest.mark.slow
     def test_hybrid_search_with_real_embedding_model(self):
         """Test hybrid search with real embedding model."""
         embedding_model = SentenceTransformer("all-MiniLM-L6-v2")

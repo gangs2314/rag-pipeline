@@ -3,12 +3,34 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from rag_pipeline import api
 from rag_pipeline.api import app
+from rag_pipeline.config import settings
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
     """Create test client."""
+    class FakePipeline:
+        def query(self, query, top_k=None, mode="semantic", rerank=False, tenant_id=None):
+            return {
+                "query": query,
+                "result_count": 1,
+                "results": [{
+                    "document_id": "chunk-store-id",
+                    "content": "Machine learning learns from examples.",
+                    "metadata": {
+                        "chunk_id": "chunk_123",
+                        "source_file": "example.txt",
+                    },
+                    "similarity_score": 0.9,
+                }],
+                "status": "success",
+            }
+
+    monkeypatch.setattr(api, "get_pipeline", lambda: FakePipeline())
+    monkeypatch.setattr(settings, "llm_provider", "fake")
+    monkeypatch.setattr(api, "rate_limiter", api.RateLimiter(requests_per_minute=100))
     return TestClient(app)
 
 

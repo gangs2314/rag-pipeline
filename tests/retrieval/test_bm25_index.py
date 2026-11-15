@@ -139,3 +139,21 @@ def test_bm25_score_values():
     # c1 should have highest score (contains both keywords)
     assert results[0]["metadata"]["chunk_id"] == "c1"
     assert results[0]["bm25_score"] >= results[1]["bm25_score"]
+
+
+def test_bm25_empty_build_and_punctuation_query_are_safe():
+    index = BM25Index()
+    index.build([])
+    assert index.search("query", top_k=5) == []
+
+    index.build([{"id": "stable-id", "content": "some useful words", "metadata": {}}])
+    assert index.search("!!!", top_k=5) == []
+
+
+def test_bm25_preserves_stable_record_id():
+    index = BM25Index()
+    index.build([{"id": "record-7", "content": "searchable text", "metadata": {}}])
+
+    result = index.search("searchable", top_k=1)[0]
+
+    assert result["id"] == "record-7"

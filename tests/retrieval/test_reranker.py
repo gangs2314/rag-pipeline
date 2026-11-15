@@ -3,10 +3,40 @@
 import pytest
 
 from rag_pipeline.retrieval.reranker import (
+    CrossEncoderMMRReranker,
     CrossEncoderReranker,
     NoOpReranker,
     get_reranker,
 )
+
+
+def test_cross_encoder_mmr_reduces_semantic_duplicates():
+    class FakeCrossEncoder:
+        def rerank(self, query, candidates, top_k):
+            return [
+                {**candidate, "relevance_score": score}
+                for candidate, score in zip(candidates, [1.0, 0.95, 0.8])
+            ][:top_k]
+
+    class FakeEmbeddingModel:
+        vectors = {
+            "first": [1.0, 0.0],
+            "near duplicate": [1.0, 0.0],
+            "different": [0.0, 1.0],
+        }
+
+        def encode(self, texts, normalize_embeddings=True):
+            return [self.vectors[text] for text in texts]
+
+    reranker = CrossEncoderMMRReranker(
+        FakeCrossEncoder(), FakeEmbeddingModel(), relevance_weight=0.5
+    )
+    candidates = [{"content": text, "metadata": {}} for text in FakeEmbeddingModel.vectors]
+
+    results = reranker.rerank("query", candidates, top_k=2)
+
+    assert [result["content"] for result in results] == ["first", "different"]
+    assert all("mmr_score" in result for result in results)
 
 
 def test_noop_reranker_passthrough():
@@ -68,14 +98,20 @@ def test_get_reranker_noop():
     assert isinstance(reranker, NoOpReranker)
 
 
-def test_get_reranker_cross_encoder():
+def test_get_reranker_cross_encoder(monkeypatch):
     """Test factory creates CrossEncoderReranker."""
-    try:
-        reranker = get_reranker("cross-encoder")
-        assert isinstance(reranker, CrossEncoderReranker)
-    except Exception as e:
-        # Model download may fail in test environment
-        assert "sentence_transformers" in str(e).lower() or "model" in str(e).lower()
+    import sentence_transformers
+
+    import rag_pipeline.retrieval.reranker as reranker_module
+
+    fake_model = object()
+    monkeypatch.setattr(sentence_transformers, "CrossEncoder", lambda model: fake_model)
+    monkeypatch.setattr(reranker_module, "_cross_encoder_cache", {})
+
+    reranker = get_reranker("cross-encoder")
+
+    assert isinstance(reranker, CrossEncoderReranker)
+    assert reranker.model is fake_model
 
 
 def test_get_reranker_unknown():
@@ -154,11 +190,11 @@ def test_cross_encoder_empty_candidates():
         pytest.skip(f"CrossEncoder model not available: {e}")
 
 
-def test_cross_encoder_custom_model():
+def test_cross_encoder_custom_model(monkeypatch):
     """Test CrossEncoderReranker accepts custom model."""
-    try:
-        reranker = CrossEncoderReranker(model="BAAI/bge-reranker-base")
-        assert reranker.model_name == "BAAI/bge-reranker-base"
-    except Exception as e:
-        # Model download may fail
-        pytest.skip(f"Model not available: {e}")
+    import sentence_transformers
+
+    monkeypatch.setattr(sentence_transformers, "CrossEncoder", lambda model: object())
+    reranker = CrossEncoderReranker(model="BAAI/bge-reranker-base")
+
+    assert reranker.model_name == "BAAI/bge-reranker-base"

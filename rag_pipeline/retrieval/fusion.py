@@ -23,7 +23,7 @@ def rrf_fuse(ranked_lists: list[list[dict]], k: int = 60) -> list[dict]:
     for ranked_list in ranked_lists:
         for rank, chunk in enumerate(ranked_list, start=1):
             # Use chunk_id as key, fall back to content
-            chunk_id = chunk.get("metadata", {}).get("chunk_id") or chunk.get("content", "")
+            chunk_id = _chunk_key(chunk)
 
             if chunk_id not in chunk_scores:
                 chunk_scores[chunk_id] = 0.0
@@ -75,12 +75,12 @@ def weighted_fuse(
 
     # Collect dense results
     for result in dense_results:
-        chunk_id = result.get("metadata", {}).get("chunk_id") or result.get("content", "")
+        chunk_id = _chunk_key(result)
         dense_scores[chunk_id] = result.get("similarity_score", 0.0)
 
     # Collect sparse results and normalize BM25 scores
     for result in sparse_results:
-        chunk_id = result.get("metadata", {}).get("chunk_id") or result.get("content", "")
+        chunk_id = _chunk_key(result)
         sparse_scores[chunk_id] = result.get("bm25_score", 0.0)
 
     # Normalize BM25 scores (they can be unbounded)
@@ -101,11 +101,11 @@ def weighted_fuse(
     # Get chunk data (prefer from dense results)
     chunk_data = {}
     for result in dense_results:
-        chunk_id = result.get("metadata", {}).get("chunk_id") or result.get("content", "")
+        chunk_id = _chunk_key(result)
         chunk_data[chunk_id] = result
 
     for result in sparse_results:
-        chunk_id = result.get("metadata", {}).get("chunk_id") or result.get("content", "")
+        chunk_id = _chunk_key(result)
         if chunk_id not in chunk_data:
             chunk_data[chunk_id] = result
 
@@ -124,3 +124,15 @@ def weighted_fuse(
             results.append(result)
 
     return results
+
+
+def _chunk_key(result: dict) -> str:
+    """Return a stable per-record key without merging equal text from other sources."""
+    metadata = result.get("metadata") or {}
+    return str(
+        result.get("document_id")
+        or result.get("id")
+        or metadata.get("unique_chunk_id")
+        or metadata.get("chunk_id")
+        or result.get("content", "")
+    )

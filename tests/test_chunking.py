@@ -1,14 +1,16 @@
 """Comprehensive tests for document chunking strategies."""
 
+
+import numpy as np
 import pytest
-from pathlib import Path
+
 from rag_pipeline.chunking import (
-    SemanticChunkingStrategy,
-    RecursiveCharacterChunkingStrategy,
-    MarkdownHeaderChunkingStrategy,
-    CodeAwareChunkingStrategy,
-    ParentChildChunkingStrategy,
     ChunkingStrategyFactory,
+    CodeAwareChunkingStrategy,
+    MarkdownHeaderChunkingStrategy,
+    ParentChildChunkingStrategy,
+    RecursiveCharacterChunkingStrategy,
+    SemanticChunkingStrategy,
 )
 
 try:
@@ -17,8 +19,28 @@ except ImportError:
     from langchain_core.documents import Document
 
 
+class FakeEmbeddingModel:
+    def encode(self, sentences, **kwargs):
+        vectors = []
+        for sentence in sentences:
+            vector = np.zeros(128, dtype=float)
+            for token in sentence.casefold().split():
+                vector[hash(token) % len(vector)] += 1.0
+            vectors.append(vector)
+        return np.array(vectors)
+
+
 class TestSemanticChunking:
     """Test semantic chunking with sentence-level similarity."""
+
+    @pytest.fixture(autouse=True)
+    def fake_embedding_model(self, monkeypatch):
+        model = FakeEmbeddingModel()
+        monkeypatch.setattr(
+            SemanticChunkingStrategy,
+            "_get_embedding_model",
+            lambda _self: model,
+        )
 
     @pytest.fixture
     def semantic_chunker(self):
@@ -392,6 +414,7 @@ class TestChunkingEdgeCases:
     def test_special_characters(self):
         """Test handling of special characters."""
         chunker = SemanticChunkingStrategy()
+        chunker._embedding_model = FakeEmbeddingModel()
 
         doc = Document(
             page_content="Special @#$% characters. More !@#$ symbols. Regular text.",

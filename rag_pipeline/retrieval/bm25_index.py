@@ -1,5 +1,7 @@
 """BM25 index for keyword-based retrieval."""
 
+import re
+
 from rank_bm25 import BM25Okapi
 
 
@@ -18,16 +20,23 @@ class BM25Index:
         Args:
             chunks: List of chunk dicts with 'content' and 'metadata'.
         """
-        self.corpus = chunks
+        self.corpus = list(chunks)
         self.chunk_ids = []
+
+        if not self.corpus:
+            self.index = None
+            return
 
         # Tokenize and build index
         tokenized_corpus = []
         for chunk in chunks:
-            content = chunk.get("content", "").lower()
-            tokens = content.split()
+            content = chunk.get("content", "").casefold()
+            tokens = re.findall(r"\w+", content)
             tokenized_corpus.append(tokens)
-            chunk_id = chunk.get("metadata", {}).get("chunk_id", f"chunk_{len(self.chunk_ids)}")
+            metadata = chunk.get("metadata", {})
+            chunk_id = chunk.get("id") or chunk.get("document_id") or metadata.get(
+                "unique_chunk_id", metadata.get("chunk_id", f"chunk_{len(self.chunk_ids)}")
+            )
             self.chunk_ids.append(chunk_id)
 
         self.index = BM25Okapi(tokenized_corpus)
@@ -42,11 +51,13 @@ class BM25Index:
         Returns:
             List of top-k chunks with BM25 scores.
         """
-        if self.index is None or not self.corpus:
+        if self.index is None or not self.corpus or top_k <= 0:
             return []
 
         # Tokenize query
-        tokens = query.lower().split()
+        tokens = re.findall(r"\w+", query.casefold())
+        if not tokens:
+            return []
 
         # Get BM25 scores
         scores = self.index.get_scores(tokens)

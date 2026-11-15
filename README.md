@@ -1,6 +1,6 @@
 # RAG Pipeline - Production-Grade Retrieval-Augmented Generation System
 
-A complete, production-ready document ingestion, intelligent search, and LLM-powered answer generation system. Upload any document type (PDF, code, JSON, Markdown, DOCX, HTML, TXT), retrieve relevant chunks via hybrid search, and generate answers with source citations.
+A document ingestion, search, and LLM-powered answer generation system. Upload supported files (PDF, code, JSON, Markdown, DOCX, HTML, TXT), retrieve relevant chunks through semantic, keyword, or hybrid search, and generate answers with source citations.
 
 ## 🎯 Key Features
 
@@ -18,7 +18,9 @@ A complete, production-ready document ingestion, intelligent search, and LLM-pow
   - Reciprocal Rank Fusion (RRF) for intelligent combination
   - +20% improvement in Recall@5 vs semantic-only baseline
 - **Cross-Encoder Reranking**: BAAI/bge-reranker-base for query-specific ranking
-  - Optional post-retrieval reranking (+40-50ms latency for +5-8% accuracy improvement)
+  - Optional post-retrieval reranking over an expanded candidate pool
+  - Maximal Marginal Relevance (MMR) reduces redundant results while preserving relevance
+  - The cross-encoder model is cached and scores candidates in batches
   - Backward-compatible (opt-in via `rerank=true` parameter)
 - **Multiple Search Modes**: semantic, keyword, hybrid with configurable weighting
 
@@ -33,11 +35,11 @@ A complete, production-ready document ingestion, intelligent search, and LLM-pow
 - **Source Attribution**: Track and validate all cited sources
 
 ### Enterprise Features (v0.2.0 NEW)
-- **API Key Authentication**: X-API-Key header based authentication
-- **Multi-Tenant Isolation**: Request-scoped tenant context via context variables (PEP 567)
+- **API Key Authentication**: X-API-Key protection for data and mutation endpoints when `API_KEYS` is configured
+- **Multi-Tenant Isolation**: Tenant-scoped ingestion, retrieval, statistics, deletion, and clear operations
 - **Structured Logging**: JSON logs with structlog for aggregation and dashboarding
 - **OpenTelemetry Tracing**: Optional integration with Jaeger/Tempo for distributed tracing
-- **Async Ingestion**: Background document processing with job tracking
+- **Async Ingestion Utilities**: Background document processing helpers with job tracking
   - SQLite job database for state persistence
   - Content-hash deduplication (SHA256)
   - Force-ingest option to override deduplication
@@ -45,7 +47,7 @@ A complete, production-ready document ingestion, intelligent search, and LLM-pow
 ### Embeddings & Storage
 - **High-Quality Embeddings**: Sentence-Transformers (all-MiniLM-L6-v2 by default)
 - **Flexible Vector Store**: ChromaDB for local/dev, Qdrant for production
-- **Advanced Deduplication**: Multi-strategy using exact hashing (SHA256) + n-gram similarity (95% threshold)
+- **Duplicate Avoidance**: Set-based exact chunk checks, tenant-scoped stable document IDs, and an inverted n-gram index for approximate duplicate checks
 - **Rich Metadata**: Source file, page number, section hierarchy, language, chunk ID
 
 ### Evaluation & Monitoring (v0.2.0 NEW)
@@ -656,13 +658,13 @@ Based on production evaluation of 15 queries across 10 documents:
 1. **Sentence-Transformers (all-MiniLM-L6-v2)**: Fast embeddings (~2000 sentences/sec CPU) with good quality for general documents
 2. **Recursive Character Chunking**: Handles diverse document types effectively while maintaining structure
 3. **ChromaDB for Development**: Simple setup with persistent storage; scales well for prototyping
-4. **Deduplication with 95% Threshold**: Effective at removing near-duplicates while preserving legitimate variations
+4. **Set-based Duplicate Checks**: Exact duplicate chunks are filtered within their source scope; tenant-scoped stable document IDs make repeated uploads idempotent. The optional approximate tracker uses an inverted n-gram index.
 
 ## 📊 Performance Characteristics
 
 - **Embedding Speed**: ~2000 sentences/second (CPU)
 - **Query Latency**: <1 second for 512-dim searches on 1000+ documents
-- **Deduplication Overhead**: ~5% of ingestion time for n-gram similarity checking
+- **Deduplication Cost**: Exact checks are set lookups; approximate n-gram checks examine only chunks sharing a signature.
 - **Memory**: ~200MB per 10,000 embedded chunks (ChromaDB)
 - [ ] Conversation history tracking for context-aware queries
 - [ ] Document summarization endpoint

@@ -1,7 +1,8 @@
 """Hybrid search combining BM25 keyword search with dense vector similarity."""
 
-from typing import Optional
 import re
+from typing import Optional
+
 import numpy as np
 
 
@@ -116,7 +117,7 @@ class CrossEncoderReranker:
 
 
 class HybridSearcher:
-    """Hybrid search combining semantic, keyword, and reranking."""
+    """Combine semantic and keyword rankings; reranking is a separate stage."""
 
     def __init__(self, embedding_model, documents: Optional[list[dict]] = None):
         """Initialize hybrid searcher.
@@ -128,11 +129,11 @@ class HybridSearcher:
         self.embedding_model = embedding_model
         self.documents = documents or []
         self.bm25 = None
-        self.reranker = None
+        self._embedding_cache_key = None
+        self._document_embeddings = None
 
         if self.documents:
             self._initialize_bm25()
-            self._initialize_reranker()
 
     def _initialize_bm25(self):
         """Initialize BM25 search."""
@@ -141,18 +142,15 @@ class HybridSearcher:
         except Exception as e:
             raise RuntimeError(f"Failed to initialize BM25: {e}")
 
-    def _initialize_reranker(self):
-        """Initialize cross-encoder reranker."""
-        try:
-            self.reranker = CrossEncoderReranker()
-        except Exception as e:
-            raise RuntimeError(f"Failed to initialize reranker: {e}")
-
     def update_documents(self, documents: list[dict]):
         """Update documents for BM25 indexing."""
         self.documents = documents
+        self._embedding_cache_key = None
+        self._document_embeddings = None
         if self.documents:
             self._initialize_bm25()
+        else:
+            self.bm25 = None
 
     def _reciprocal_rank_fusion(
         self,
@@ -205,6 +203,8 @@ class HybridSearcher:
         Returns:
             List of (doc_id, score) tuples
         """
+        if documents != self.documents:
+            self.update_documents(documents)
         if mode == "semantic":
             return self._semantic_search(query, documents, top_k)
         elif mode == "keyword":
@@ -222,10 +222,15 @@ class HybridSearcher:
     ) -> list[tuple[str, float]]:
         """Semantic search only."""
         query_embedding = self.embedding_model.encode(query)
+        cache_key = tuple((doc.get("id"), doc.get("content", "")) for doc in documents)
+        if cache_key != self._embedding_cache_key:
+            self._document_embeddings = self.embedding_model.encode(
+                [doc.get("content", "") for doc in documents]
+            )
+            self._embedding_cache_key = cache_key
 
         scores = []
-        for doc in documents:
-            doc_embedding = self.embedding_model.encode(doc["content"])
+        for doc, doc_embedding in zip(documents, self._document_embeddings):
             similarity = float(
                 np.dot(query_embedding, doc_embedding) /
                 (np.linalg.norm(query_embedding) * np.linalg.norm(doc_embedding) + 1e-8)
@@ -242,7 +247,7 @@ class HybridSearcher:
         top_k: int = 5,
     ) -> list[tuple[str, float]]:
         """Keyword search only using BM25."""
-        if not self.bm25:
+        if self.bm25 is None:
             raise RuntimeError("BM25 not initialized. Provide documents first.")
 
         results = self.bm25.search(query, top_k)
@@ -254,14 +259,15 @@ class HybridSearcher:
         documents: list[dict],
         top_k: int = 5,
     ) -> list[tuple[str, float]]:
-        """Hybrid search with semantic + keyword + reranking."""
+        """Hybrid search with semantic + keyword candidate fusion."""
         # Step 1: Semantic search (top 20)
         semantic_results = self._semantic_search(query, documents, top_k=20)
 
         # Step 2: Keyword search with BM25 (top 20)
         try:
-            bm25_temp = BM25Search(documents)
-            keyword_results = bm25_temp.search(query, top_k=20)
+            if self.bm25 is None:
+                self.update_documents(documents)
+            keyword_results = self.bm25.search(query, top_k=20)
         except Exception:
             keyword_results = []
 

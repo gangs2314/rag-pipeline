@@ -2,8 +2,9 @@
 requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["rag_pipeline"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rag_pipeline*"]
 
 [project]
 name = "rag-pipeline"
@@ -68,3 +69,9 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+markers = [
+    "slow: tests that may download or load large machine learning models",
+]

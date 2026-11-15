@@ -1,16 +1,14 @@
 """Production-ready test suite for RAG Pipeline."""
 
-import asyncio
 import json
 import time
-from pathlib import Path
-from typing import List
 
-import pytest
 import httpx
-from rag_pipeline.pipeline import get_pipeline
-from rag_pipeline.loaders import DocumentLoaderFactory
+import pytest
+
 from rag_pipeline.config import settings
+from rag_pipeline.loaders import DocumentLoaderFactory
+from rag_pipeline.pipeline import get_pipeline
 
 
 class TestConstants:
@@ -69,8 +67,8 @@ class TestDocumentUpload:
     def test_pdf_upload(self, api_client, tmp_path):
         """Test PDF file upload."""
         try:
-            from reportlab.pdfgen import canvas
             from reportlab.lib.pagesizes import letter
+            from reportlab.pdfgen import canvas
         except ImportError:
             pytest.skip("reportlab not installed")
 
